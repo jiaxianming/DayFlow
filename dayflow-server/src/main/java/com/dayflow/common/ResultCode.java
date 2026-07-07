@@ -5,7 +5,7 @@ import lombok.Getter;
 /**
  * 统一状态码
  *
- * @author dayflow
+ * @author jiaxianming
  */
 @Getter
 public enum ResultCode {

@@ -8,10 +8,15 @@ import java.io.Serializable;
  * 统一返回包装
  *
  * @param <T> 数据载荷类型
- * @author dayflow
+ * @author jiaxianming
  */
 @Getter
 public class Result<T> implements Serializable {
+
+    /**
+     * 序列化版本号
+     */
+    private static final long serialVersionUID = 1L;
 
     /**
      * 状态码

@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * DayFlow 后端启动类
  *
- * @author dayflow
+ * @author jiaxianming
  */
 @SpringBootApplication
 public class DayflowApplication {

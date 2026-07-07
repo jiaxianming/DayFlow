@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 健康检查控制器
  *
- * @author dayflow
+ * @author jiaxianming
  */
 @RestController
 @RequestMapping("/api/health")

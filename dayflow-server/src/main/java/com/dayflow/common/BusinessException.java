@@ -5,7 +5,7 @@ import lombok.Getter;
 /**
  * 业务异常
  *
- * @author dayflow
+ * @author jiaxianming
  */
 @Getter
 public class BusinessException extends RuntimeException {
