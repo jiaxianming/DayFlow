@@ -269,7 +269,7 @@ public Report generateDailyReport(Long userId, LocalDate date) {
 
 ## 6. 数据模型
 
-实体命名遵循全局规范：不使用 `Entity` 后缀。所有主键 `@TableId(type = IdType.ASSIGN_ID)`，所有字段显式 `@TableField`。
+实体命名遵循全局规范：**必须使用 `Entity` 后缀**（如 `UserEntity`、`ActivityEntity`、`ReportEntity`）。所有主键 `@TableId(type = IdType.ASSIGN_ID)`，所有字段显式 `@TableField`。
 
 ### 6.1 `user` —— 用户
 
@@ -431,7 +431,8 @@ DayFlow/
 │       │   ├── orchestration/      # ReportOrchestrationService
 │       │   ├── planner/ collector/ writer/ reviewer/
 │       │   └── tools/              # ReportDataTools (Spring AI @Tool)
-│       ├── entity/  mapper/        # MyBatis-Plus
+│       ├── pojo/                  # 数据模型层：entity / dto / query / vo
+│       ├── mapper/                # MyBatis-Plus Mapper
 │       ├── config/                 # Spring AI / 向量库 / 安全配置
 │       └── common/                 # Result / 异常 / 常量
 ├── dayflow-web/                    # Vue3 + TS + Vite 前端

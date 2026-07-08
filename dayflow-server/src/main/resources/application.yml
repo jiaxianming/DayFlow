@@ -3,3 +3,34 @@ server:
 spring:
   application:
     name: dayflow-server
+  mvc:
+    # 找不到处理器时抛 NoHandlerFoundException，配合 GlobalExceptionHandler 统一回 404
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      # 关闭默认静态资源映射，使未匹配路径走 NoHandlerFoundException → 404
+      add-mappings: false
+  datasource:
+    url: jdbc:mysql://localhost:3306/dayflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+    username: ${DAYFLOW_DB_USER:root}
+    password: ${DAYFLOW_DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: null
+dayflow:
+  jwt:
+    # JWT 签名密钥（dev 默认值；生产用环境变量 DAYFLOW_JWT_SECRET 覆盖）
+    secret: ${DAYFLOW_JWT_SECRET:zXj9Lp2Qr7TuVwXyZ0a1Bc3De5Fg7Hi9Jk1Lm3Np5Qr7St9Uv1Wx3Yz}
+    # JWT 有效期（秒）—— 604800 = 7 天
+    expiration: 604800
+logging:
+  level:
+    com.dayflow: debug

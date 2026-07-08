@@ -26,7 +26,7 @@ public class Result<T> implements Serializable {
     /**
      * 提示信息
      */
-    private final String message;
+    private final String msg;
 
     /**
      * 数据载荷
@@ -37,12 +37,12 @@ public class Result<T> implements Serializable {
      * 全参构造
      *
      * @param code 状态码
-     * @param message 提示信息
+     * @param msg 提示信息
      * @param data 数据载荷
      */
-    private Result(Integer code, String message, T data) {
+    private Result(Integer code, String msg, T data) {
         this.code = code;
-        this.message = message;
+        this.msg = msg;
         this.data = data;
     }
 
@@ -82,11 +82,11 @@ public class Result<T> implements Serializable {
      * 失败（自定义码与信息）
      *
      * @param code 状态码
-     * @param message 提示信息
+     * @param msg 提示信息
      * @param <T> 载荷类型
      * @return 失败结果
      */
-    public static <T> Result<T> fail(Integer code, String message) {
-        return new Result<>(code, message, null);
+    public static <T> Result<T> fail(Integer code, String msg) {
+        return new Result<>(code, msg, null);
     }
 }
