@@ -19,6 +19,18 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema.sql
+  ai:
+    # chat provider 选择器：deepseek（默认，云端）/ ollama（本地）/ none
+    model:
+      chat: ${DAYFLOW_AI_PROVIDER:deepseek}
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:}
+      chat:
+        model: ${DAYFLOW_DEEPSEEK_MODEL:deepseek-chat}
+    ollama:
+      base-url: ${DAYFLOW_OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        model: ${DAYFLOW_OLLAMA_MODEL:qwen2.5}
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
