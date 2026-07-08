@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -23,6 +24,13 @@ class GlobalExceptionHandlerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    /**
+     * JwtInterceptor 被 @WebMvcTest 自动扫描，构造依赖 JwtUtil；
+     * 这里 mock 它仅为满足上下文依赖（/api/health/** 已排除拦截，不会被调用）。
+     */
+    @MockitoBean
+    private JwtUtil jwtUtil;
 
     /**
      * 业务异常被全局处理器捕获后，Result.code 必须映射为 409（业务规则冲突）

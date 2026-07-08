@@ -71,6 +71,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- BCrypt 密码校验（仅引入 crypto 模块，不引入完整 Spring Security） -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
