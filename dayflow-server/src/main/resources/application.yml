@@ -3,3 +3,17 @@ server:
 spring:
   application:
     name: dayflow-server
+  datasource:
+    url: jdbc:mysql://localhost:3306/dayflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+    username: ${DAYFLOW_DB_USER:root}
+    password: ${DAYFLOW_DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: null
+logging:
+  level:
+    com.dayflow: debug
