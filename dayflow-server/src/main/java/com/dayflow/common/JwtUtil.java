@@ -49,12 +49,15 @@ public class JwtUtil {
      */
     public String generate(Long userId, String username) {
         Date now = new Date();
+        // 显式指定 HS256 签名算法，避免 jjwt 依据密钥长度自动选择算法
+        // （Keys.hmacShaKeyFor 会按 key 字节数选 HmacSHA256/384/512，
+        // 默认 55 字节 secret 会被签成 HS384，与规范要求的 HS256 不一致）
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("username", username)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiration * 1000L))
-                .signWith(key())
+                .signWith(key(), Jwts.SIG.HS256)
                 .compact();
     }
 

@@ -1,7 +1,11 @@
 package com.dayflow.common;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -26,12 +30,21 @@ class JwtUtilTest {
 
     /**
      * 签发 → 解析往返：userId / username 一致
+     * 回归守护：token 头部 alg 必须为 HS256
+     * （防止 jjwt 按密钥长度自动选择算法导致退化为 HS384）
      */
     @Test
     void generateAndParseRoundTrip() {
         String token = jwtUtil.generate(1L, "admin");
         assertEquals(1L, jwtUtil.parseUserId(token));
         assertEquals("admin", jwtUtil.parseUsername(token));
+
+        // 回归守护：算法必须为 HS256
+        var key = Keys.hmacShaKeyFor(
+                "test-secret-test-secret-test-secret-32+".getBytes(StandardCharsets.UTF_8));
+        String alg = Jwts.parser().verifyWith(key).build()
+                .parseSignedClaims(token).getHeader().getAlgorithm();
+        assertEquals("HS256", alg, "JWT 签名算法应为 HS256");
     }
 
     /**
