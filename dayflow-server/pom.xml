@@ -109,6 +109,30 @@
                     </excludes>
                 </configuration>
             </plugin>
+
+            <!-- 解析测试依赖的 jar 绝对路径为属性（如 ${net.bytebuddy:byte-buddy-agent:jar}），供 surefire argLine 引用 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>resolve-dependency-paths</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- JDK 21 上 Mockito 默认的 inline mock maker 需动态附加 byte-buddy agent（self-attach），在沙箱/受限环境下会失败 -->
+            <!-- 显式把 byte-buddy-agent 作为 -javaagent 在 JVM 启动时加载，规避 self-attach（Mockito 官方推荐做法） -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-javaagent:${net.bytebuddy:byte-buddy-agent:jar}</argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
