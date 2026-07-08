@@ -4,6 +4,8 @@ import lombok.Getter;
 
 /**
  * 统一状态码
+ * <p>按 HTTP 语义细化：200 成功 / 400 参数错误 / 401 未认证 / 403 无权限 /
+ * 404 资源不存在 / 409 业务规则冲突 / 500 系统异常</p>
  *
  * @author jiaxianming
  */
@@ -26,9 +28,19 @@ public enum ResultCode {
     UNAUTHORIZED(401, "未认证"),
 
     /**
-     * 业务异常
+     * 无权限
      */
-    BUSINESS_ERROR(500, "业务异常"),
+    FORBIDDEN(403, "无权限"),
+
+    /**
+     * 资源不存在
+     */
+    NOT_FOUND(404, "资源不存在"),
+
+    /**
+     * 业务规则冲突
+     */
+    BUSINESS_ERROR(409, "业务规则冲突"),
 
     /**
      * 系统异常
