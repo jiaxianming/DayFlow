@@ -61,37 +61,35 @@
 }
 ```
 
-*   列表响应应包含分页信息（基于 `PageUtils.java`）
+*   列表响应直接用 MyBatis-Plus `IPage` 序列化（Controller 返回 `Result<IPage<XxxVO>>`）
 
 ```json
 {
   "code": 200,
   "msg": "success",
   "data": {
-    "list": [...],
-    "currPage": 1,
-    "pageSize": 20,
-    "totalPage": 5,
-    "totalCount": 100
+    "records": [...],
+    "total": 100,
+    "size": 20,
+    "current": 1,
+    "pages": 5
   }
 }
 ```
 
-*   分页字段说明：
-    *   `list` - 当前页数据列表
-    *   `currPage` - 当前页码，从 1 开始
-    *   `pageSize` - 每页条数
-    *   `totalPage` - 总页数
-    *   `totalCount` - 总记录数
+*   分页响应字段说明（`IPage` 标准字段）：
+    *   `records` - 当前页数据列表
+    *   `total` - 总记录数
+    *   `size` - 每页条数
+    *   `current` - 当前页码，从 1 开始
+    *   `pages` - 总页数（由 total/size 计算）
 
-*   分页查询参数（基于 `Query.java`）：
+*   分页查询参数（各 `XxxQuery` 类，如 `ActivityQuery`/`TaskQuery`/`NoteQuery`/`ReportQuery`）：
 
 | 参数名 | 类型 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `page` | Long | 1 | 当前页码 |
-| `limit` | Long | 10 | 每页条数 |
-| `orderField` | String | - | 排序字段（防止SQL注入） |
-| `order` | String | - | 排序方向（ASC/DESC） |
+| `page` | Integer | 1 | 当前页码（Service 内绑定到 `IPage.current`） |
+| `size` | Integer | 20 | 每页条数（Service 内绑定到 `IPage.size`） |
 
 ## 3.  命名约定
 
@@ -99,23 +97,27 @@
 • 查询参数使用驼峰（camelCase）
 • JSON字段使用驼峰（camelCase）
 
-## 4. HTTP状态码
+## 4. HTTP 状态码与业务语义
 
-• 200 OK - 成功
-• 201 Created - 创建成功
-• 204 No Content - 删除成功（无返回体）
-• 400 Bad Request - 请求参数错误
-• 401 Unauthorized - 未认证
-• 403 Forbidden - 无权限
-• 404 Not Found - 资源不存在
-• 409 Conflict - 资源冲突（如唯一约束）
-• 422 Unprocessable Entity - 业务校验失败
-• 500 Internal Server Error - 服务器内部错误
+*   DayFlow Controller **统一返回 HTTP 200**，外层用 `Result` 包装；业务语义体现在 `Result.code` 字段（详见 `common/ResultCode.java`）。
+*   `Result.code` 语义：
+
+| code | 含义 | 触发场景 |
+| :--- | :--- | :--- |
+| `200` | 成功 | 正常返回 |
+| `400` | 参数错误 | `@Valid` 校验失败、请求体格式错误、请求方法不支持 |
+| `401` | 未认证 | 缺失/无效 JWT、登录失败（不区分用户是否存在） |
+| `403` | 无权限 | 越权操作他人资源 |
+| `404` | 资源不存在 | 按 id 查不到记录、无匹配路由 |
+| `409` | 业务规则冲突 | `BusinessException` 默认码 |
+| `500` | 系统异常 | 未捕获异常兜底 |
+
+*   业务异常用 `BusinessException(ResultCode, String)` 包装，由 `GlobalExceptionHandler` 统一映射为上表 code。
 
 ## 5. 版本控制
 
-*   在URL中嵌入版本号：`/api/v1/users`
-*   保持向后兼容，重大变更时提升主版本号
+*   路径前缀 `/api/<resource>`（如 `/api/activities`、`/api/auth/login`），**暂不版本化**。
+*   后续确有破坏性变更时再引入版本段（如 `/api/v2/...`），保持向后兼容。
 
 ## 6. 文档
 
