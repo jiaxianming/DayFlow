@@ -8,6 +8,10 @@ spring:
     username: ${DAYFLOW_DB_USER:root}
     password: ${DAYFLOW_DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
