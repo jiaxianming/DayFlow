@@ -30,6 +30,6 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/api/health/error"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(500))
-                .andExpect(jsonPath("$.message").value("业务异常"));
+                .andExpect(jsonPath("$.msg").value("业务异常"));
     }
 }
