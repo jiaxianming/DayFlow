@@ -17,10 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 用户鉴权服务集成测试（T5 跨任务校验）
  * <p>真 DB + schema.sql 预置用户：验证 admin/dayflow123 的 BCrypt hash 端到端可登录。
  * 若本测试失败，说明 schema.sql 中预置 hash 与明文密码不匹配（T2 遗留风险）。</p>
+ * <p>注入测试用 DeepSeek key 绕过 AiConfig fail-fast（M2 T1 引入）。</p>
  *
  * @author jiaxianming
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.ai.deepseek.api-key=test-key")
 class UserAuthServiceImplTest {
 
     @Autowired
