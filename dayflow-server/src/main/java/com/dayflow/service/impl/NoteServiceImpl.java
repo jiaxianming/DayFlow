@@ -48,6 +48,9 @@ public class NoteServiceImpl implements NoteService {
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "笔记不存在");
         }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人笔记");
+        }
         return toVO(e);
     }
 
@@ -77,6 +80,9 @@ public class NoteServiceImpl implements NoteService {
         NoteEntity e = noteMapper.selectById(id);
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "笔记不存在");
+        }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人笔记");
         }
         noteMapper.deleteById(id);
     }

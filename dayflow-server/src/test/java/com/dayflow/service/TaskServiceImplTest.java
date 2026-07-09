@@ -91,6 +91,8 @@ class TaskServiceImplTest {
 
     @Test
     void getByIdReturnsVO() {
+        // 归属当前用户：校验通过，返回 VO
+        UserContext.setUserId(1L);
         TaskEntity e = new TaskEntity();
         e.setId(1L);
         e.setUserId(1L);
@@ -101,6 +103,45 @@ class TaskServiceImplTest {
         assertEquals(1L, vo.getId());
         assertEquals("测试任务", vo.getTitle());
         assertEquals(TaskStatus.DOING, vo.getStatus());
+    }
+
+    @Test
+    void getByIdForbiddenWhenNotOwner() {
+        // 当前用户 1L，任务归属 2L（他人）-> 越权分支 FORBIDDEN(403)
+        UserContext.setUserId(1L);
+        TaskEntity e = new TaskEntity();
+        e.setId(9L);
+        e.setUserId(2L);
+        when(taskMapper.selectById(9L)).thenReturn(e);
+        BusinessException ex = assertThrows(BusinessException.class, () -> taskService.getById(9L));
+        assertEquals(403, ex.getCode());
+    }
+
+    @Test
+    void completeForbiddenWhenNotOwner() {
+        // 越权 complete：不应触达 updateById
+        UserContext.setUserId(1L);
+        TaskEntity e = new TaskEntity();
+        e.setId(9L);
+        e.setUserId(2L);
+        e.setStatus(TaskStatus.TODO);
+        when(taskMapper.selectById(9L)).thenReturn(e);
+        BusinessException ex = assertThrows(BusinessException.class, () -> taskService.complete(9L));
+        assertEquals(403, ex.getCode());
+        verify(taskMapper, never()).updateById(any(TaskEntity.class));
+    }
+
+    @Test
+    void completeIsIdempotentWhenAlreadyDone() {
+        // 幂等：任务已 DONE，归属当前用户 -> 直接返回，不再写库
+        UserContext.setUserId(1L);
+        TaskEntity e = new TaskEntity();
+        e.setId(9L);
+        e.setUserId(1L);
+        e.setStatus(TaskStatus.DONE);
+        when(taskMapper.selectById(9L)).thenReturn(e);
+        taskService.complete(9L);
+        verify(taskMapper, never()).updateById(any(TaskEntity.class));
     }
 
     @Test

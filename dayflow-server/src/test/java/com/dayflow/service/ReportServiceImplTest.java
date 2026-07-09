@@ -90,6 +90,8 @@ class ReportServiceImplTest {
 
     @Test
     void getByIdReturnsVO() {
+        // 归属当前用户：校验通过，返回 VO
+        UserContext.setUserId(1L);
         ReportEntity e = new ReportEntity();
         e.setId(1L);
         e.setUserId(1L);
@@ -107,8 +109,52 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void getByIdForbiddenWhenNotOwner() {
+        // 当前用户 1L，报告归属 2L（他人）-> 越权分支 FORBIDDEN(403)
+        UserContext.setUserId(1L);
+        ReportEntity e = new ReportEntity();
+        e.setId(9L);
+        e.setUserId(2L);              // 他人报告
+        when(reportMapper.selectById(9L)).thenReturn(e);
+        BusinessException ex = assertThrows(BusinessException.class, () -> reportService.getById(9L));
+        assertEquals(403, ex.getCode());
+    }
+
+    @Test
+    void deleteForbiddenWhenNotOwner() {
+        // 越权删除：不应触达 deleteById
+        UserContext.setUserId(1L);
+        ReportEntity e = new ReportEntity();
+        e.setId(9L);
+        e.setUserId(2L);
+        when(reportMapper.selectById(9L)).thenReturn(e);
+        BusinessException ex = assertThrows(BusinessException.class, () -> reportService.delete(9L));
+        assertEquals(403, ex.getCode());
+        verify(reportMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void listTracesForbiddenWhenNotOwner() {
+        // 越权查 trace：先校验报告归属，不应触达 traceMapper.selectList
+        UserContext.setUserId(1L);
+        ReportEntity e = new ReportEntity();
+        e.setId(9L);
+        e.setUserId(2L);
+        when(reportMapper.selectById(9L)).thenReturn(e);
+        BusinessException ex = assertThrows(BusinessException.class, () -> reportService.listTraces(9L));
+        assertEquals(403, ex.getCode());
+        verify(traceMapper, never()).selectList(any());
+    }
+
+    @Test
     void listTracesReturnsByReportId() {
         // 验证 listTraces 走 traceMapper.selectList 且按 reportId 查、转 VO
+        // 归属校验通过：报告归属当前用户
+        UserContext.setUserId(1L);
+        ReportEntity owner = new ReportEntity();
+        owner.setId(100L);
+        owner.setUserId(1L);
+        when(reportMapper.selectById(100L)).thenReturn(owner);
         AgentTraceEntity t = new AgentTraceEntity();
         t.setId(1L);
         t.setReportId(100L);

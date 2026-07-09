@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 报告服务实现
@@ -56,6 +57,9 @@ public class ReportServiceImpl implements ReportService {
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
         }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人报告");
+        }
         return toVO(e);
     }
 
@@ -64,6 +68,9 @@ public class ReportServiceImpl implements ReportService {
         ReportEntity e = reportMapper.selectById(id);
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人报告");
         }
         reportMapper.deleteById(id);
     }
@@ -80,6 +87,14 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public List<AgentTraceVO> listTraces(Long reportId) {
+        // 先校验报告归属：报告不存在 -> NOT_FOUND；非本人报告 -> FORBIDDEN
+        ReportEntity report = reportMapper.selectById(reportId);
+        if (report == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        if (!Objects.equals(report.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人报告");
+        }
         List<AgentTraceEntity> traces = traceMapper.selectList(
                 new LambdaQueryWrapper<AgentTraceEntity>()
                         .eq(AgentTraceEntity::getReportId, reportId)

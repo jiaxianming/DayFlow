@@ -47,6 +47,9 @@ public class ActivityServiceImpl implements ActivityService {
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人活动");
+        }
         return toVO(e);
     }
 
@@ -76,6 +79,9 @@ public class ActivityServiceImpl implements ActivityService {
         ActivityEntity e = activityMapper.selectById(id);
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
+        }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人活动");
         }
         activityMapper.deleteById(id);
     }
