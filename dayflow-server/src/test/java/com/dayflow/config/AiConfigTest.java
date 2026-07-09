@@ -55,5 +55,24 @@ class AiConfigTest {
                     assertThat(root.getMessage()).contains("DEEPSEEK_API_KEY");
                 });
     }
+
+    /**
+     * provider=none → 启动抛 IllegalStateException，提示未启用对话模型
+     */
+    @Test
+    void failFastWhenProviderIsNone() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(AiConfig.class)
+                .withPropertyValues("spring.ai.model.chat=none")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    Throwable root = context.getStartupFailure();
+                    while (root.getCause() != null) {
+                        root = root.getCause();
+                    }
+                    assertThat(root).isInstanceOf(IllegalStateException.class);
+                    assertThat(root.getMessage()).contains("none");
+                });
+    }
 }
 

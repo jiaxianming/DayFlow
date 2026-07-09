@@ -4,7 +4,6 @@ import com.dayflow.common.GlobalExceptionHandler;
 import com.dayflow.common.JwtUtil;
 import com.dayflow.pojo.vo.ChatVO;
 import com.dayflow.service.AiService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -16,6 +15,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -48,8 +49,6 @@ class AiControllerTest {
     @MockitoBean
     private JwtUtil jwtUtil;
 
-    private final ObjectMapper json = new ObjectMapper();
-
     /**
      * 正常对话返回 200 + ChatVO
      */
@@ -65,7 +64,7 @@ class AiControllerTest {
     }
 
     /**
-     * 空 message → @Valid 失败 → 400
+     * 空 message → @Valid 失败 → 400，且 Service 不被调用
      */
     @Test
     void chatWithEmptyMessageReturns400() throws Exception {
@@ -74,5 +73,6 @@ class AiControllerTest {
                         .content("{\"message\":\"\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400));
+        verify(aiService, never()).chat(any());
     }
 }

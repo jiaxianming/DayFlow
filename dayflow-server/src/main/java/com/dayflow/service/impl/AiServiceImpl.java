@@ -5,8 +5,7 @@ import com.dayflow.common.ResultCode;
 import com.dayflow.pojo.dto.ChatRequestDTO;
 import com.dayflow.pojo.vo.ChatVO;
 import com.dayflow.service.AiService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
@@ -19,15 +18,16 @@ import org.springframework.stereotype.Service;
  *
  * @author jiaxianming
  */
+@Slf4j
 @Service
 public class AiServiceImpl implements AiService {
-
-    private static final Logger log = LoggerFactory.getLogger(AiServiceImpl.class);
 
     private final ChatClient chatClient;
     private final Environment environment;
 
     /**
+     * 注入 ChatClient 与 Environment，构造可调用的对话服务
+     *
      * @param chatClient  AiConfig 自建的 ChatClient
      * @param environment 读取 spring.ai.* 填充 provider/model 元信息
      */
@@ -48,7 +48,8 @@ public class AiServiceImpl implements AiService {
             log.error("AI 调用失败: {}", e.getMessage(), e);
             throw new BusinessException(ResultCode.SYSTEM_ERROR, "AI 服务调用失败，请稍后重试");
         }
-        return new ChatVO(reply == null ? "" : reply, currentProvider(), currentModel());
+        String provider = currentProvider();
+        return new ChatVO(reply == null ? "" : reply, provider, currentModel(provider));
     }
 
     /**
@@ -59,10 +60,11 @@ public class AiServiceImpl implements AiService {
     }
 
     /**
+     * @param provider 当前激活 provider
      * @return 当前 provider 对应的模型名
      */
-    private String currentModel() {
-        if ("ollama".equals(currentProvider())) {
+    private String currentModel(String provider) {
+        if ("ollama".equals(provider)) {
             return environment.getProperty("spring.ai.ollama.chat.model", "qwen2.5");
         }
         return environment.getProperty("spring.ai.deepseek.chat.model", "deepseek-chat");

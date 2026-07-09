@@ -73,4 +73,44 @@ class AiServiceImplTest {
         BusinessException ex = assertThrows(BusinessException.class, () -> aiService.chat(dto));
         assertEquals(500, ex.getCode());
     }
+
+    /**
+     * provider=ollama 分支：返回回复并附 ollama 元信息
+     */
+    @Test
+    void chatReturnsOllamaMeta() {
+        when(chatClient.prompt().user(anyString()).call().content()).thenReturn("hi");
+        when(environment.getProperty("spring.ai.model.chat", "deepseek")).thenReturn("ollama");
+        when(environment.getProperty("spring.ai.ollama.chat.model", "qwen2.5"))
+                .thenReturn("qwen2.5");
+
+        ChatRequestDTO dto = new ChatRequestDTO();
+        dto.setMessage("在吗");
+
+        ChatVO vo = aiService.chat(dto);
+
+        assertEquals("hi", vo.getReply());
+        assertEquals("ollama", vo.getProvider());
+        assertEquals("qwen2.5", vo.getModel());
+    }
+
+    /**
+     * LLM 返回 null → reply 兜底空串（其余元信息仍填充）
+     */
+    @Test
+    void chatReturnsEmptyReplyWhenModelReturnsNull() {
+        when(chatClient.prompt().user(anyString()).call().content()).thenReturn(null);
+        when(environment.getProperty("spring.ai.model.chat", "deepseek")).thenReturn("deepseek");
+        when(environment.getProperty("spring.ai.deepseek.chat.model", "deepseek-chat"))
+                .thenReturn("deepseek-chat");
+
+        ChatRequestDTO dto = new ChatRequestDTO();
+        dto.setMessage("在吗");
+
+        ChatVO vo = aiService.chat(dto);
+
+        assertEquals("", vo.getReply());
+        assertEquals("deepseek", vo.getProvider());
+        assertEquals("deepseek-chat", vo.getModel());
+    }
 }
