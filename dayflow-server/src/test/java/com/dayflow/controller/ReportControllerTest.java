@@ -1,5 +1,6 @@
 package com.dayflow.controller;
 
+import com.dayflow.agent.orchestration.ReportOrchestrationService;
 import com.dayflow.common.GlobalExceptionHandler;
 import com.dayflow.common.JwtUtil;
 import com.dayflow.pojo.vo.AgentTraceVO;
@@ -45,6 +46,12 @@ class ReportControllerTest {
 
     @MockitoBean
     private ReportService reportService;
+
+    /**
+     * M3 编排服务（generate 端点依赖），切片测试用 mock 隔离真实 4 Agent 流水线。
+     */
+    @MockitoBean
+    private ReportOrchestrationService orchestrationService;
 
     /**
      * JwtInterceptor 被 @WebMvcTest 自动扫描，构造需要 JwtUtil；
@@ -100,5 +107,27 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.data[0].reportId").value(1));
         // 验证 controller 确实调用了 listTraces（断言链路打通）
         verify(reportService).listTraces(1L);
+    }
+
+    @Test
+    void generateReturns200WithReportId() throws Exception {
+        when(orchestrationService.generate(any())).thenReturn(42L);
+        mockMvc.perform(post("/api/reports/generate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"DAILY\",\"date\":\"2026-07-09\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data").value(42));
+        verify(orchestrationService).generate(any());
+    }
+
+    @Test
+    void generateWithInvalidBodyReturns400() throws Exception {
+        // 缺 date -> @Valid 失败 -> GlobalExceptionHandler 映射为 HTTP 200 + Result.code=400
+        mockMvc.perform(post("/api/reports/generate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"DAILY\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400));
     }
 }

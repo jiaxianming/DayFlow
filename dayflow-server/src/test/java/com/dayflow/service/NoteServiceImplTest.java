@@ -84,6 +84,31 @@ class NoteServiceImplTest {
     }
 
     @Test
+    void getByIdForbiddenWhenNotOwner() {
+        // 当前用户 1L，笔记归属 2L（他人）-> 越权分支 FORBIDDEN(403)
+        UserContext.setUserId(1L);
+        NoteEntity e = new NoteEntity();
+        e.setId(9L);
+        e.setUserId(2L);
+        when(noteMapper.selectById(9L)).thenReturn(e);
+        BusinessException ex = assertThrows(BusinessException.class, () -> noteService.getById(9L));
+        assertEquals(403, ex.getCode());
+    }
+
+    @Test
+    void deleteForbiddenWhenNotOwner() {
+        // 越权删除：不应触达 deleteById
+        UserContext.setUserId(1L);
+        NoteEntity e = new NoteEntity();
+        e.setId(9L);
+        e.setUserId(2L);
+        when(noteMapper.selectById(9L)).thenReturn(e);
+        BusinessException ex = assertThrows(BusinessException.class, () -> noteService.delete(9L));
+        assertEquals(403, ex.getCode());
+        verify(noteMapper, never()).deleteById(any());
+    }
+
+    @Test
     void getByIdNotFoundThrows() {
         when(noteMapper.selectById(999L)).thenReturn(null);
         assertThrows(BusinessException.class, () -> noteService.getById(999L));
@@ -91,6 +116,8 @@ class NoteServiceImplTest {
 
     @Test
     void getByIdReturnsVO() {
+        // 归属当前用户：校验通过，返回 VO
+        UserContext.setUserId(1L);
         NoteEntity e = new NoteEntity();
         e.setId(1L);
         e.setUserId(1L);

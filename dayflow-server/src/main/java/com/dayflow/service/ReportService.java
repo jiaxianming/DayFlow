@@ -54,4 +54,25 @@ public interface ReportService {
      * @return 轨迹视图列表
      */
     List<AgentTraceVO> listTraces(Long reportId);
+
+    /**
+     * 标记报告生成成功并写入正文 + token（编排层内部调用）
+     * <p>异步线程内由 {@code ReportOrchestrationService.run} 在流水线完成后调用；
+     * 不做 userId 校验（异步线程无 UserContext；reportId 来自 generate 创建，受信）。</p>
+     *
+     * @param id         报告 id
+     * @param content    日报正文 markdown
+     * @param tokenUsage 累计 token
+     */
+    void markGenerated(Long id, String content, Integer tokenUsage);
+
+    /**
+     * 标记报告生成失败并写入错误信息（编排层内部调用）
+     * <p>异步线程内由 {@code ReportOrchestrationService.run} 在捕获异常时调用；
+     * 不做 userId 校验（同 {@link #markGenerated}）。</p>
+     *
+     * @param id       报告 id
+     * @param errorMsg 错误信息
+     */
+    void markFailed(Long id, String errorMsg);
 }

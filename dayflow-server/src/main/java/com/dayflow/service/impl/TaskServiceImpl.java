@@ -49,6 +49,9 @@ public class TaskServiceImpl implements TaskService {
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "任务不存在");
         }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人任务");
+        }
         return toVO(e);
     }
 
@@ -76,6 +79,9 @@ public class TaskServiceImpl implements TaskService {
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "任务不存在");
         }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人任务");
+        }
         taskMapper.deleteById(id);
     }
 
@@ -94,6 +100,13 @@ public class TaskServiceImpl implements TaskService {
         TaskEntity e = taskMapper.selectById(id);
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "任务不存在");
+        }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人任务");
+        }
+        if (e.getStatus() == TaskStatus.DONE) {
+            // 幂等：已完成直接返回成功，不重复写库
+            return;
         }
         e.setStatus(TaskStatus.DONE);
         e.setCompletedAt(LocalDateTime.now());

@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 报告服务实现
@@ -56,6 +57,9 @@ public class ReportServiceImpl implements ReportService {
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
         }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人报告");
+        }
         return toVO(e);
     }
 
@@ -64,6 +68,9 @@ public class ReportServiceImpl implements ReportService {
         ReportEntity e = reportMapper.selectById(id);
         if (e == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        if (!Objects.equals(e.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人报告");
         }
         reportMapper.deleteById(id);
     }
@@ -80,11 +87,45 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public List<AgentTraceVO> listTraces(Long reportId) {
+        // 先校验报告归属：报告不存在 -> NOT_FOUND；非本人报告 -> FORBIDDEN
+        ReportEntity report = reportMapper.selectById(reportId);
+        if (report == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        if (!Objects.equals(report.getUserId(), UserContext.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权操作他人报告");
+        }
         List<AgentTraceEntity> traces = traceMapper.selectList(
                 new LambdaQueryWrapper<AgentTraceEntity>()
                         .eq(AgentTraceEntity::getReportId, reportId)
                         .orderByAsc(AgentTraceEntity::getStep));
         return traces.stream().map(this::toTraceVO).toList();
+    }
+
+    @Override
+    public void markGenerated(Long id, String content, Integer tokenUsage) {
+        // 编排层内部 finalize：异步线程无 UserContext，不加 userId 校验（reportId 来自 generate 创建，受信）
+        ReportEntity e = reportMapper.selectById(id);
+        if (e == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        e.setStatus(ReportStatus.GENERATED);
+        e.setContent(content);
+        e.setTokenUsage(tokenUsage);
+        e.setErrorMsg(null);
+        reportMapper.updateById(e);
+    }
+
+    @Override
+    public void markFailed(Long id, String errorMsg) {
+        // 编排层内部 finalize：异步线程无 UserContext，不加 userId 校验（reportId 来自 generate 创建，受信）
+        ReportEntity e = reportMapper.selectById(id);
+        if (e == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        e.setStatus(ReportStatus.FAILED);
+        e.setErrorMsg(errorMsg);
+        reportMapper.updateById(e);
     }
 
     /**
