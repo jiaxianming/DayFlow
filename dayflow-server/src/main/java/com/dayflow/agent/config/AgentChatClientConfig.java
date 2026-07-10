@@ -1,5 +1,6 @@
 package com.dayflow.agent.config;
 
+import com.dayflow.agent.tools.ReportDataTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.context.annotation.Bean;
@@ -7,15 +8,28 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * 4 个 Agent 专属 ChatClient 配置：各自 defaultSystem 注入角色 prompt。
- * <p>本 task（T4）只建 3 个不带 tools 的 ChatClient（Planner/Writer/Reviewer）。
- * collectorChatClient 需注入 {@code ReportDataTools} 作 defaultTools，依赖 Task 6 完成，
- * 届时在 ReportDataTools 就绪后于此补建（带 COLLECTOR_PROMPT + defaultTools）。
- * COLLECTOR_PROMPT 常量在此一并定义，供 T6 直接引用。</p>
+ * <p>Planner/Writer/Reviewer 三个 ChatClient 仅注入角色 prompt（不带 tools）；
+ * Collector 额外通过 {@code defaultTools} 注册 {@link ReportDataTools}，
+ * 使 LLM 可自主调用 @Tool 方法采集真实数据。</p>
  *
  * @author jiaxianming
  */
 @Configuration
 public class AgentChatClientConfig {
+
+    /**
+     * Collector 数据采集工具（含 @Tool 三方法），作 collectorChatClient 的 defaultTools
+     */
+    private final ReportDataTools reportDataTools;
+
+    /**
+     * 构造器注入 ReportDataTools。
+     *
+     * @param reportDataTools 报告数据采集工具
+     */
+    public AgentChatClientConfig(ReportDataTools reportDataTools) {
+        this.reportDataTools = reportDataTools;
+    }
 
     /** 主编：规划日报板块 */
     public static final String PLANNER_PROMPT = """
@@ -90,5 +104,20 @@ public class AgentChatClientConfig {
         return ChatClient.builder(chatModel).defaultSystem(REVIEWER_PROMPT).build();
     }
 
-    // collectorChatClient 在 Task 6 补建（需注入 ReportDataTools 作 defaultTools）
+    /**
+     * Collector 专属 ChatClient，注入记者角色 prompt 并注册 {@link ReportDataTools}
+     * 为 defaultTools，使 LLM 可自主调用 @Tool 方法采集真实数据。
+     * <p>安全约束：userId 全程由 {@code AgentContext}（后端掌控）传入，
+     * LLM 不接触 userId；工具内 userId 缺失时安全降级返回空列表。</p>
+     *
+     * @param chatModel M2 auto-config 创建的 ChatModel
+     * @return Collector 专属 ChatClient（defaultSystem + defaultTools）
+     */
+    @Bean(name = "collectorChatClient")
+    public ChatClient collectorChatClient(ChatModel chatModel) {
+        return ChatClient.builder(chatModel)
+                .defaultSystem(COLLECTOR_PROMPT)
+                .defaultTools(reportDataTools)
+                .build();
+    }
 }
