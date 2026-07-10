@@ -5,4 +5,21 @@ package com.dayflow.pojo.enums;
  *
  * @author jiaxianming
  */
-public enum ActivityCategory { WORK, STUDY, MEETING, OTHER }
+public enum ActivityCategory {
+    /**
+     * 工作
+     */
+    WORK,
+    /**
+     * 学习
+     */
+    STUDY,
+    /**
+     * 会议
+     */
+    MEETING,
+    /**
+     * 其他（默认值）
+     */
+    OTHER
+}

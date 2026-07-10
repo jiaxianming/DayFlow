@@ -5,4 +5,17 @@ package com.dayflow.pojo.enums;
  *
  * @author jiaxianming
  */
-public enum TaskStatus { TODO, DOING, DONE }
+public enum TaskStatus {
+    /**
+     * 待办（默认值）
+     */
+    TODO,
+    /**
+     * 进行中
+     */
+    DOING,
+    /**
+     * 已完成
+     */
+    DONE
+}

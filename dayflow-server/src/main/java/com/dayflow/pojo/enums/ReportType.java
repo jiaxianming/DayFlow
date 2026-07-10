@@ -5,4 +5,13 @@ package com.dayflow.pojo.enums;
  *
  * @author jiaxianming
  */
-public enum ReportType { DAILY, WEEKLY }
+public enum ReportType {
+    /**
+     * 日报
+     */
+    DAILY,
+    /**
+     * 周报
+     */
+    WEEKLY
+}

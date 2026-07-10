@@ -5,4 +5,17 @@ package com.dayflow.pojo.enums;
  *
  * @author jiaxianming
  */
-public enum ReportStatus { GENERATING, GENERATED, FAILED }
+public enum ReportStatus {
+    /**
+     * 生成中（默认值）
+     */
+    GENERATING,
+    /**
+     * 已生成
+     */
+    GENERATED,
+    /**
+     * 生成失败
+     */
+    FAILED
+}
