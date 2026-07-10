@@ -68,7 +68,7 @@ public class AgentChatClientConfig {
             1. 必须调用工具拉取真实数据，禁止编造；按计划板块的 dataSource 调对应工具。
             2. 每条素材出 summary（简短摘要）与 ref（如时间或标题）。
             3. 某数据源为空则该板块 items 为空、保留板块名。
-            4. 严格输出结构化 JSON，字段：sections[{sectionName,items[{source,summary,ref}]}]。
+            4. 采集完成后用自然语言归纳各板块素材（供下一步结构化）。
             """;
 
     /**
@@ -113,11 +113,35 @@ public class AgentChatClientConfig {
      * @param chatModel M2 auto-config 创建的 ChatModel
      * @return Collector 专属 ChatClient（defaultSystem + defaultTools）
      */
+    /** 整理员：把第一段已采集归纳的文本结构化为板块素材（第二段，无 tool，规避 tool calling 后空 content） */
+    public static final String COLLECTOR_STRUCT_PROMPT = """
+            你是日报素材整理员。给你一段已经采集归纳好的文本，请整理成结构化的板块素材。
+            规则：
+            1. 按文本内容归类到对应板块，每条素材出 source(ACTIVITY/TASK/NOTE)、summary(简短摘要)、ref(时间或标题)。
+            2. 文本为空或无任何素材时，输出 sections 为空数组 []。
+            3. 严格输出结构化 JSON，字段：sections[{sectionName,items[{source,summary,ref}]}]。
+            """;
+
     @Bean(name = "collectorChatClient")
     public ChatClient collectorChatClient(ChatModel chatModel) {
         return ChatClient.builder(chatModel)
                 .defaultSystem(COLLECTOR_PROMPT)
                 .defaultTools(reportDataTools)
                 .build();
+    }
+
+    /**
+     * Collector 第二段结构化专用 ChatClient（<strong>无 tool</strong>）。
+     * <p>规避 DeepSeek tool calling 后间歇空 content 导致 {@code .entity()} 崩溃：
+     * 第一段带 tool 仅取文本（{@code callForContent}），第二段用本 client 把文本结构化为
+     * {@code CollectedMaterial}——无 tool 调用下模型稳定产 content，不再受 tool calling
+     * 空 content 影响。</p>
+     *
+     * @param chatModel M2 auto-config 创建的 ChatModel
+     * @return Collector 结构化专用 ChatClient（仅 defaultSystem，无 tools）
+     */
+    @Bean(name = "collectorStructChatClient")
+    public ChatClient collectorStructChatClient(ChatModel chatModel) {
+        return ChatClient.builder(chatModel).defaultSystem(COLLECTOR_STRUCT_PROMPT).build();
     }
 }

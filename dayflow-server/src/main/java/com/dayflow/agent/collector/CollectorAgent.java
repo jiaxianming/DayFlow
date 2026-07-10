@@ -13,7 +13,13 @@ import java.time.LocalDate;
 
 /**
  * 采集 Agent：按报告计划调工具拉真实数据，归纳成结构化素材包。
- * <p>collectorChatClient 已预配 {@code defaultTools(reportDataTools)}，LLM 自主调工具取数。</p>
+ * <p><strong>两段式</strong>（规避 DeepSeek tool calling 后间歇空 content 导致 {@code .entity()} 崩溃）：
+ * <ol>
+ *   <li>第一段：{@code collectorChatClient}（带 {@code defaultTools}）经 {@code callForContent}
+ *       仅取采集文本——LLM 自主调工具取数，空 content 安全降级为 ""。</li>
+ *   <li>第二段：{@code structChatClient}（无 tool）把采集文本结构化为 {@link CollectedMaterial}
+ *       ——无 tool 调用下模型稳定产 content。</li>
+ * </ol></p>
  * <p>安全约束：userId 绝不进 prompt（本 Agent 不读 userId），
  * 仅经 {@code AgentContext} 供 Tool 使用，杜绝 LLM 幻觉导致越权拉取他人数据。</p>
  *
@@ -33,30 +39,50 @@ public class CollectorAgent {
     private final ChatClient collectorChatClient;
 
     /**
+     * Collector 第二段结构化专用 ChatClient（无 tool），规避 tool calling 后空 content 崩溃
+     */
+    private final ChatClient structChatClient;
+
+    /**
      * 构造 CollectorAgent。
      *
      * @param invoker            Agent 调用聚合器
      * @param collectorChatClient Collector 专属 ChatClient（已注 defaultSystem + defaultTools）
+     * @param structChatClient   Collector 第二段结构化专用 ChatClient（无 tool）
      */
     public CollectorAgent(AgentInvoker invoker,
-                          @Qualifier("collectorChatClient") ChatClient collectorChatClient) {
+                          @Qualifier("collectorChatClient") ChatClient collectorChatClient,
+                          @Qualifier("collectorStructChatClient") ChatClient structChatClient) {
         this.invoker = invoker;
         this.collectorChatClient = collectorChatClient;
+        this.structChatClient = structChatClient;
     }
 
     /**
-     * 采集素材。
-     * <p>据报告计划与日期构造 prompt（<strong>不含 userId</strong>），调
-     * {@link AgentInvoker#invoke} 得到结构化 {@link CollectedMaterial}。
-     * 采集范围固定为 [date, date]（单日）。</p>
+     * 采集素材（两段式）。
+     * <p>据报告计划与日期构造 prompt（<strong>不含 userId</strong>）：
+     * <ol>
+     *   <li>第一段：带 tool 的 {@code collectorChatClient} 经 {@code callForContent} 取采集文本
+     *       ——tool calling 后空 content 降级为 ""，不崩。</li>
+     *   <li>第二段：无 tool 的 {@code structChatClient} 把文本结构化为 {@link CollectedMaterial}。</li>
+     * </ol>
+     * 两段 token / latency 累加。采集范围固定为 [date, date]（单日）。</p>
      *
      * @param plan 报告计划（标题 + 板块清单）
      * @param date 采集日期（范围 = [date, date]）
-     * @return AgentResult（payload=CollectedMaterial）
+     * @return AgentResult（payload=CollectedMaterial；tokens/latency 为两段累加）
      */
     public AgentResult<CollectedMaterial> collect(ReportPlan plan, LocalDate date) {
         String prompt = buildPrompt(plan, date);
-        return invoker.invoke(collectorChatClient, prompt, CollectedMaterial.class);
+        // 第一段：带 tool 采集——仅取文本（callForContent），规避 tool calling 后空 content 崩溃
+        AgentResult<String> collected = invoker.callForContent(collectorChatClient, prompt);
+        // 第二段：无 tool 结构化——把采集文本喂给 structChatClient，DeepSeek 无 tool 调用稳定产 content
+        AgentResult<CollectedMaterial> structured =
+                invoker.invoke(structChatClient, collected.payload(), CollectedMaterial.class);
+        // 两段 token / latency 累加
+        return new AgentResult<>(structured.payload(),
+                collected.tokens() + structured.tokens(),
+                collected.latencyMs() + structured.latencyMs());
     }
 
     /**
