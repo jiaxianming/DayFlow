@@ -1,7 +1,9 @@
 package com.dayflow.controller;
 
+import com.dayflow.agent.orchestration.ReportOrchestrationService;
 import com.dayflow.common.Result;
 import com.dayflow.pojo.dto.ReportCreateDTO;
+import com.dayflow.pojo.dto.ReportGenerateDTO;
 import com.dayflow.pojo.query.ReportQuery;
 import com.dayflow.pojo.vo.AgentTraceVO;
 import com.dayflow.pojo.vo.ReportVO;
@@ -32,6 +34,11 @@ public class ReportController {
     private final ReportService reportService;
 
     /**
+     * 报告编排服务（M3：触发 4 Agent 异步生成流水线）
+     */
+    private final ReportOrchestrationService orchestrationService;
+
+    /**
      * 创建报告（仅写元信息，status=GENERATING）
      *
      * @param dto 报告创建入参
@@ -40,6 +47,19 @@ public class ReportController {
     @PostMapping
     public Result<Long> create(@Valid @RequestBody ReportCreateDTO dto) {
         return Result.success(reportService.create(dto));
+    }
+
+    /**
+     * 触发报告生成（异步）：立即返回 reportId，前端轮询状态与轨迹。
+     * <p>薄层：{@code @Valid} 校验 + 一次 {@code orchestrationService.generate} 调用；
+     * 编排服务在请求线程内建报告(GENERATING) + 提交 4 Agent 异步流水线。</p>
+     *
+     * @param dto 生成入参（type / date）
+     * @return 新建报告 id
+     */
+    @PostMapping("/generate")
+    public Result<Long> generate(@Valid @RequestBody ReportGenerateDTO dto) {
+        return Result.success(orchestrationService.generate(dto));
     }
 
     /**

@@ -15,6 +15,7 @@ import com.dayflow.common.UserContext;
 import com.dayflow.mapper.ActivityMapper;
 import com.dayflow.mapper.NoteMapper;
 import com.dayflow.mapper.TaskMapper;
+import com.dayflow.pojo.dto.ReportGenerateDTO;
 import com.dayflow.pojo.enums.ReportType;
 import com.dayflow.service.AgentTraceService;
 import com.dayflow.service.ReportService;
@@ -179,5 +180,28 @@ class ReportOrchestrationServiceImplTest {
         orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         // run 结束后 AgentContext 应被 clear（@AfterEach 也 clear，此处额外验证无残留由 AfterEach 兜底）
+    }
+
+    /**
+     * generate 契约：读 UserContext.userId -> reportService.create 建报告 -> 提交 agentExecutor 异步 -> 返回 reportId。
+     * <p>run 全链路已由前 5 个用例覆盖，这里聚焦 generate 同步契约：
+     * mock reportService.create 返回 88L，agentExecutor.execute doNothing（不触发 run），断言返回值 + verify 提交一次。</p>
+     */
+    @Test
+    void generateCreatesReportAndSubmitsAsync() {
+        // agentExecutor / reportService / 3 Mapper 均已在类声明中 @Mock（见上）
+        UserContext.setUserId(7L);
+        when(reportService.create(any())).thenReturn(88L);
+        doNothing().when(agentExecutor).execute(any());
+
+        ReportGenerateDTO dto = new ReportGenerateDTO();
+        dto.setType(ReportType.DAILY);
+        dto.setDate(LocalDate.of(2026, 7, 9));
+
+        Long id = orchestration.generate(dto);
+
+        assertEquals(88L, id);
+        verify(reportService).create(any());
+        verify(agentExecutor).execute(any());
     }
 }
