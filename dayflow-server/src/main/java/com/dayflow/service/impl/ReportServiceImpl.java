@@ -102,6 +102,32 @@ public class ReportServiceImpl implements ReportService {
         return traces.stream().map(this::toTraceVO).toList();
     }
 
+    @Override
+    public void markGenerated(Long id, String content, Integer tokenUsage) {
+        // 编排层内部 finalize：异步线程无 UserContext，不加 userId 校验（reportId 来自 generate 创建，受信）
+        ReportEntity e = reportMapper.selectById(id);
+        if (e == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        e.setStatus(ReportStatus.GENERATED);
+        e.setContent(content);
+        e.setTokenUsage(tokenUsage);
+        e.setErrorMsg(null);
+        reportMapper.updateById(e);
+    }
+
+    @Override
+    public void markFailed(Long id, String errorMsg) {
+        // 编排层内部 finalize：异步线程无 UserContext，不加 userId 校验（reportId 来自 generate 创建，受信）
+        ReportEntity e = reportMapper.selectById(id);
+        if (e == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告不存在");
+        }
+        e.setStatus(ReportStatus.FAILED);
+        e.setErrorMsg(errorMsg);
+        reportMapper.updateById(e);
+    }
+
     /**
      * 报告实体转视图对象
      *
