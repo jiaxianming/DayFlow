@@ -20,6 +20,7 @@ describe('HistoryView', () => {
       periodStart: '2026-07-10',
       periodEnd: '2026-07-10',
       title: '7月10日日报',
+      content: '报告正文',
       status: 'GENERATED',
       errorMsg: null,
       tokenUsage: 500,

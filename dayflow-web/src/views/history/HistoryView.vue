@@ -32,6 +32,8 @@ async function load(): Promise<void> {
     const p = await pageReports(query)
     list.value = p.records
     total.value = p.total
+  } catch {
+    // 拦截器已 ElMessage.error 提示
   } finally {
     loading.value = false
   }
@@ -42,15 +44,23 @@ function onView(row: IReportVO): void {
 }
 
 async function onDelete(row: IReportVO): Promise<void> {
-  await ElMessageBox.confirm('确认删除该报告？', '提示', { type: 'warning' })
-  await deleteReport(row.id)
-  ElMessage.success('已删除')
-  await load()
+  try {
+    await ElMessageBox.confirm('确认删除该报告？', '提示', { type: 'warning' })
+    await deleteReport(row.id)
+    ElMessage.success('已删除')
+    await load()
+  } catch {
+    // 用户取消确认：静默；API 失败由 axios 拦截器统一 ElMessage.error 提示
+  }
 }
 
 async function onGenerate(): Promise<void> {
-  const id = await reportStore.triggerGenerate({ type: 'DAILY', date: todayString() })
-  router.push('/reports/' + id)
+  try {
+    const id = await reportStore.triggerGenerate({ type: 'DAILY', date: todayString() })
+    router.push('/reports/' + id)
+  } catch {
+    // 拦截器已提示
+  }
 }
 
 function onPageChange(p: number): void {
