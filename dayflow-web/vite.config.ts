@@ -29,5 +29,17 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
+    /**
+     * 单 fork 进程串行执行测试文件
+     * 默认 threads 多 worker 在 jsdom + Element Plus 组件 mount 负载下会 OOM 崩溃
+     * （"Worker exited unexpectedly"），静默丢弃测试文件 → 计数飘忽、假"全量通过"。
+     * 串行单进程保证确定性、无静默丢文件；本项目 10 文件 33 用例约 2s，并行无收益。
+     */
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
   },
 })
