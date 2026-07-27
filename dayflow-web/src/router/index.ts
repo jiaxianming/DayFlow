@@ -27,8 +27,9 @@ export function resolveRoute(
 
 /**
  * 路由表
- * Task 4 仅注册 login/register/input(占位)/404；
- * Task 5 起将受保护路由重构进 AppLayout children，并逐步替换占位为真实组件。
+ * - /login /register：公开页（顶层）
+ * - /：AppLayout 布局，children 为受保护业务页
+ * - /:pathMatch(.*)*：404（公开）
  */
 const routes: RouteRecordRaw[] = [
   {
@@ -43,11 +44,15 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/RegisterView.vue'),
     meta: { public: true },
   },
-  { path: '/', redirect: '/input' },
   {
-    path: '/input',
-    name: 'input',
-    component: () => import('@/views/input/InputView.vue'),
+    path: '/',
+    component: () => import('@/layouts/AppLayout.vue'),
+    children: [
+      { path: '', redirect: '/input' },
+      { path: 'input', name: 'input', component: () => import('@/views/input/InputView.vue') },
+      { path: 'reports', name: 'history', component: () => import('@/views/history/HistoryView.vue') },
+      { path: 'reports/:id', name: 'report', component: () => import('@/views/report/ReportView.vue') },
+    ],
   },
   {
     path: '/:pathMatch(.*)*',
