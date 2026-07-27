@@ -2,11 +2,13 @@ package com.dayflow.service.impl;
 
 import com.dayflow.common.BusinessException;
 import com.dayflow.pojo.dto.LoginDTO;
+import com.dayflow.pojo.dto.RegisterDTO;
 import com.dayflow.pojo.vo.LoginVO;
 import com.dayflow.service.UserAuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -57,5 +59,44 @@ class UserAuthServiceImplTest {
 
         BusinessException ex = assertThrows(BusinessException.class, () -> userAuthService.login(dto));
         assertEquals(401, ex.getCode());
+    }
+
+    /**
+     * 端到端：注册新用户 → 返回非空 token；同密码可登录（验证 BCrypt 加密落库可登录）
+     * 用 nanoTime 保证用户名唯一，避免与预置 admin 或多次运行冲突
+     */
+    @Test
+    @Transactional
+    void registerSucceedsThenCanLogin() {
+        String username = "newuser_" + System.nanoTime();
+        RegisterDTO dto = new RegisterDTO();
+        dto.setUsername(username);
+        dto.setPassword("secret123");
+
+        LoginVO vo = userAuthService.register(dto);
+        assertNotNull(vo);
+        assertTrue(vo.getToken() != null && !vo.getToken().isBlank(), "注册后 token 不应为空");
+        assertEquals(username, vo.getUsername());
+
+        // 注册即登录：同账号密码可登录
+        LoginDTO loginDto = new LoginDTO();
+        loginDto.setUsername(username);
+        loginDto.setPassword("secret123");
+        LoginVO loginVo = userAuthService.login(loginDto);
+        assertNotNull(loginVo);
+        assertTrue(loginVo.getToken() != null && !loginVo.getToken().isBlank(), "登录 token 不应为空");
+    }
+
+    /**
+     * 用户名重复：抛 BusinessException(409)
+     */
+    @Test
+    @Transactional
+    void registerDuplicateThrows409() {
+        RegisterDTO dto = new RegisterDTO();
+        dto.setUsername("admin");  // 预置用户已存在
+        dto.setPassword("whatever");
+        BusinessException ex = assertThrows(BusinessException.class, () -> userAuthService.register(dto));
+        assertEquals(409, ex.getCode());
     }
 }
