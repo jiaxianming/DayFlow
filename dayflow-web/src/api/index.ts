@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { AxiosResponse } from 'axios'
 import JSONBig from 'json-bigint'
 import { ElMessage } from 'element-plus'
 import type { IResult } from '@/types/api'
@@ -56,10 +57,12 @@ http.interceptors.request.use((config) => {
  * - 网络错误：ElMessage.error('网络异常...') 并 reject
  */
 http.interceptors.response.use(
-  (response) => {
+  (response): AxiosResponse | Promise<AxiosResponse> => {
     const result = response.data as IResult<unknown>
     if (result.code === 200) {
-      return result.data
+      // 解包返回 Result.data（非 AxiosResponse）——运行时由各 api 函数
+      // `as unknown as Promise<T>` 补偿类型；此处 cast 仅为满足 axios 拦截器签名。
+      return result.data as unknown as AxiosResponse
     }
     if (result.code === 401) {
       unauthorizedHandler?.()
