@@ -19,6 +19,8 @@ async function load(): Promise<void> {
     const page = await listNotes(query)
     list.value = page.records
     total.value = page.total
+  } catch {
+    // 拦截器已统一 ElMessage.error 提示，此处静默
   } finally {
     loading.value = false
   }
@@ -79,7 +81,11 @@ async function onSubmit(): Promise<void> {
 }
 
 async function onDelete(row: INoteVO): Promise<void> {
-  await ElMessageBox.confirm('确认删除该笔记？', '提示', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm('确认删除该笔记？', '提示', { type: 'warning' })
+  } catch {
+    return // 用户取消，静默
+  }
   await deleteNote(row.id)
   ElMessage.success('已删除')
   await load()
