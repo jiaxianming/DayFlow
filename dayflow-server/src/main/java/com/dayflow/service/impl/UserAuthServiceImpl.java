@@ -6,6 +6,7 @@ import com.dayflow.common.JwtUtil;
 import com.dayflow.common.ResultCode;
 import com.dayflow.mapper.UserMapper;
 import com.dayflow.pojo.dto.LoginDTO;
+import com.dayflow.pojo.dto.RegisterDTO;
 import com.dayflow.pojo.entity.UserEntity;
 import com.dayflow.pojo.vo.LoginVO;
 import com.dayflow.service.UserAuthService;
@@ -45,6 +46,32 @@ public class UserAuthServiceImpl implements UserAuthService {
         if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPasswordHash())) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "用户名或密码错误");
         }
+        String token = jwtUtil.generate(user.getId(), user.getUsername());
+        return LoginVO.builder()
+                .token(token)
+                .userId(user.getId())
+                .username(user.getUsername())
+                .nickname(user.getNickname())
+                .build();
+    }
+
+    /**
+     * 注册：查重 → BCrypt 加密 → 落库 → 签发 JWT（注册即登录）
+     *
+     * @param dto 注册入参
+     * @return 登录出参（含 token）
+     */
+    @Override
+    public LoginVO register(RegisterDTO dto) {
+        UserEntity existing = userMapper.selectOne(
+                new LambdaQueryWrapper<UserEntity>().eq(UserEntity::getUsername, dto.getUsername()));
+        if (existing != null) {
+            throw new BusinessException(ResultCode.BUSINESS_ERROR, "用户名已存在");
+        }
+        UserEntity user = new UserEntity();
+        user.setUsername(dto.getUsername());
+        user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
+        userMapper.insert(user);
         String token = jwtUtil.generate(user.getId(), user.getUsername());
         return LoginVO.builder()
                 .token(token)

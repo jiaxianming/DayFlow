@@ -1,6 +1,7 @@
 package com.dayflow.service;
 
 import com.dayflow.pojo.dto.LoginDTO;
+import com.dayflow.pojo.dto.RegisterDTO;
 import com.dayflow.pojo.vo.LoginVO;
 
 /**
@@ -17,4 +18,12 @@ public interface UserAuthService {
      * @return 登录出参（含 token 与用户基本信息）
      */
     LoginVO login(LoginDTO dto);
+
+    /**
+     * 注册：查重 + BCrypt 加密 + 落库 + 签发 JWT（注册即登录）
+     *
+     * @param dto 注册入参
+     * @return 登录出参（含 token，注册即登录，无需二次登录）
+     */
+    LoginVO register(RegisterDTO dto);
 }
