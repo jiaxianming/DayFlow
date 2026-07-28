@@ -83,6 +83,27 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void markGeneratedSetsTitleAndContent() {
+        // 编排层 finalize：markGenerated 写入 title/content/token/status，并清空 errorMsg
+        ReportEntity e = new ReportEntity();
+        e.setId(1L);
+        e.setStatus(ReportStatus.GENERATING);
+        e.setErrorMsg("旧的失败信息");
+        when(reportMapper.selectById(1L)).thenReturn(e);
+
+        reportService.markGenerated(1L, "我的日报", "# 正文", 120);
+
+        ArgumentCaptor<ReportEntity> captor = ArgumentCaptor.forClass(ReportEntity.class);
+        verify(reportMapper).updateById(captor.capture());
+        ReportEntity saved = captor.getValue();
+        assertEquals(ReportStatus.GENERATED, saved.getStatus());
+        assertEquals("我的日报", saved.getTitle());
+        assertEquals("# 正文", saved.getContent());
+        assertEquals(120, saved.getTokenUsage());
+        assertNull(saved.getErrorMsg());
+    }
+
+    @Test
     void getByIdNotFoundThrows() {
         when(reportMapper.selectById(999L)).thenReturn(null);
         assertThrows(BusinessException.class, () -> reportService.getById(999L));

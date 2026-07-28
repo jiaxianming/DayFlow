@@ -191,8 +191,12 @@ public class ReportOrchestrationServiceImpl implements ReportOrchestrationServic
                 draft = rewrite.payload();
                 trace(reportId, AgentName.WRITER, step++, reviewResult.payload(), draft, rewrite, retry);
             }
-            // 4. 落库（单独事务）
-            reportService.markGenerated(reportId, toMarkdown(draft), totalTokens);
+            // 4. 落库（单独事务）：标题优先取 Writer 产出，缺失则按类型+日期兜底，保证 report.title 永不为 null
+            String title = draft.getTitle();
+            if (title == null || title.isBlank()) {
+                title = (type == ReportType.WEEKLY ? "周报 " : "日报 ") + date;
+            }
+            reportService.markGenerated(reportId, title, toMarkdown(draft), totalTokens);
             log.info("报告生成完成 reportId={} tokens={}", reportId, totalTokens);
         } catch (Exception e) {
             log.error("报告生成失败 reportId={}", reportId, e);

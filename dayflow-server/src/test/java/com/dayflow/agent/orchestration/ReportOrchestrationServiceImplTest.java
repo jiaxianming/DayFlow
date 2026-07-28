@@ -110,9 +110,26 @@ class ReportOrchestrationServiceImplTest {
 
         orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
-        verify(reportService).markGenerated(eq(1L), any(String.class), anyInt());
+        // title 取自 Writer 产出的 draft（"v1"）；content 为 toMarkdown；token 累计
+        verify(reportService).markGenerated(eq(1L), eq("v1"), any(String.class), anyInt());
         verify(reportService, never()).markFailed(anyLong(), any());
         // AgentContext 在 run 内已 set（Tool 可读），finally clear
+    }
+
+    @Test
+    void runFallsBackTitleWhenDraftTitleBlank() {
+        // Writer 偶发不产标题（空白）→ 编排层兜底「日报 + date」，保证 report.title 永不为 null
+        when(planner.plan(any())).thenReturn(new AgentResult<>(plan(), 50, 100));
+        when(collector.collect(any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
+        when(writer.write(any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("   "), 90, 300));
+        ReviewResult pass = new ReviewResult();
+        pass.setPassed(true);
+        when(reviewer.review(any(), any())).thenReturn(new AgentResult<>(pass, 70, 150));
+
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
+
+        // draft.title 为空白 → 兜底标题「日报 2026-07-09」
+        verify(reportService).markGenerated(eq(1L), eq("日报 2026-07-09"), any(String.class), anyInt());
     }
 
     @Test
@@ -132,7 +149,8 @@ class ReportOrchestrationServiceImplTest {
 
         verify(writer).write(any(), any(), isNull());       // 首次
         verify(writer).write(any(), any(), eq("请精简"));    // 返工一次
-        verify(reportService).markGenerated(eq(1L), any(), anyInt());
+        // 返工后最终 draft title="v2"
+        verify(reportService).markGenerated(eq(1L), eq("v2"), any(String.class), anyInt());
     }
 
     @Test
@@ -150,7 +168,7 @@ class ReportOrchestrationServiceImplTest {
         orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         // MAX_RETRY=2：while(retry<2) 仅 retry=0、1 两轮，reviewer 最多被调 2 次（始终 reject 时），退出后强制通过 → markGenerated（与 spec 5.4 伪代码一致）
-        verify(reportService).markGenerated(eq(1L), any(), anyInt());
+        verify(reportService).markGenerated(eq(1L), eq("v"), any(String.class), anyInt());
         verify(reportService, never()).markFailed(anyLong(), any());
     }
 
@@ -161,7 +179,7 @@ class ReportOrchestrationServiceImplTest {
         orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         verify(reportService).markFailed(eq(1L), contains("LLM 挂了"));
-        verify(reportService, never()).markGenerated(anyLong(), any(), any());
+        verify(reportService, never()).markGenerated(anyLong(), any(), any(), anyInt());
     }
 
     @Test

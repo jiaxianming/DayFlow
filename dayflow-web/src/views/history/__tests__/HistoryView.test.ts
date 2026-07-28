@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import ElementPlus from 'element-plus'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import HistoryView from '../HistoryView.vue'
 import * as reportApi from '@/api/report'
@@ -11,6 +11,12 @@ import type { IReportVO } from '@/types/report'
 describe('HistoryView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    // 清理 teleport 到 body 的 dialog 残留 + 还原 spy，避免跨用例污染
+    vi.restoreAllMocks()
+    document.body.innerHTML = ''
   })
 
   it('加载并渲染报告列表 + 状态文案', async () => {
@@ -48,5 +54,38 @@ describe('HistoryView', () => {
     expect(reportApi.pageReports).toHaveBeenCalled()
     expect(wrapper.text()).toContain('7月10日日报')
     expect(wrapper.text()).toContain('已完成')
+  })
+
+  it('点「生成报告」打开对话框（先选再生成，不再直接生成今日）', async () => {
+    vi.spyOn(reportApi, 'pageReports').mockResolvedValue({
+      records: [],
+      total: 0,
+      size: 10,
+      current: 1,
+      pages: 0,
+    })
+    // spy 生成接口，用于断言「打开对话框不应立即触发生成」
+    const genSpy = vi.spyOn(reportApi, 'generateReport').mockResolvedValue('new-1')
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:rest(.*)*', component: { template: '<div/>' } }],
+    })
+    const wrapper = mount(HistoryView, { global: { plugins: [router, ElementPlus] } })
+    await nextTick()
+    await nextTick()
+
+    // 顶部按钮文案「生成报告」（改造后）
+    const openBtn = wrapper.findAll('button').find((b) => b.text().includes('生成报告'))!
+    expect(openBtn).toBeTruthy()
+    // 初始对话框未打开
+    expect(wrapper.findComponent({ name: 'ElDialog' }).props('modelValue')).toBe(false)
+    // 点击打开对话框（先选再生成，而非一进来就触发）
+    await openBtn.trigger('click')
+    await nextTick()
+    expect(wrapper.findComponent({ name: 'ElDialog' }).props('modelValue')).toBe(true)
+    // 未点对话框内「生成」前，生成接口不应被调用
+    expect(genSpy).not.toHaveBeenCalled()
+
+    wrapper.unmount()
   })
 })

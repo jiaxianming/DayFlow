@@ -56,15 +56,17 @@ public interface ReportService {
     List<AgentTraceVO> listTraces(Long reportId);
 
     /**
-     * 标记报告生成成功并写入正文 + token（编排层内部调用）
+     * 标记报告生成成功并写入标题 + 正文 + token（编排层内部调用）
      * <p>异步线程内由 {@code ReportOrchestrationService.run} 在流水线完成后调用；
-     * 不做 userId 校验（异步线程无 UserContext；reportId 来自 generate 创建，受信）。</p>
+     * 不做 userId 校验（异步线程无 UserContext；reportId 来自 generate 创建，受信）。
+     * title 由编排层传入（优先取 Writer 产出，缺失则兜底），此处仅负责持久化。</p>
      *
      * @param id         报告 id
+     * @param title      报告标题（编排层保证非空）
      * @param content    日报正文 markdown
      * @param tokenUsage 累计 token
      */
-    void markGenerated(Long id, String content, Integer tokenUsage);
+    void markGenerated(Long id, String title, String content, Integer tokenUsage);
 
     /**
      * 标记报告生成失败并写入错误信息（编排层内部调用）
