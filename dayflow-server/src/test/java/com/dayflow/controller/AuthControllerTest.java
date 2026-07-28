@@ -4,7 +4,6 @@ import com.dayflow.common.GlobalExceptionHandler;
 import com.dayflow.common.JwtUtil;
 import com.dayflow.pojo.vo.LoginVO;
 import com.dayflow.service.UserAuthService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -48,8 +47,6 @@ class AuthControllerTest {
      */
     @MockitoBean
     private JwtUtil jwtUtil;
-
-    private final ObjectMapper json = new ObjectMapper();
 
     @Test
     void registerReturns200() throws Exception {

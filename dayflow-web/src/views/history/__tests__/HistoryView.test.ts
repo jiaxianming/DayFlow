@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import ElementPlus from 'element-plus'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -34,7 +35,13 @@ describe('HistoryView', () => {
       pages: 1,
     })
 
-    const wrapper = mount(HistoryView, { global: { plugins: [ElementPlus] } })
+    // HistoryView 用 useRouter()，注入 memory router 避免 "Symbol(router)" 警告
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:rest(.*)*', component: { template: '<div/>' } }],
+    })
+
+    const wrapper = mount(HistoryView, { global: { plugins: [router, ElementPlus] } })
     await nextTick()
     await nextTick()
 

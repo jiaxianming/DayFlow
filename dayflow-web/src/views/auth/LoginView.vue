@@ -27,7 +27,11 @@ async function onSubmit(): Promise<void> {
     loading.value = true
     try {
       await authStore.login({ username: form.username, password: form.password })
-      const redirect = (route.query.redirect as string) || '/input'
+      // 开放重定向守卫：仅允许以单 '/' 开头的站内相对路径，拒绝 '//evil.com' 等
+      const raw = route.query.redirect
+      const redirect = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//')
+        ? raw
+        : '/input'
       router.push(redirect)
     } catch {
       // 响应拦截器已 ElMessage 提示错误
