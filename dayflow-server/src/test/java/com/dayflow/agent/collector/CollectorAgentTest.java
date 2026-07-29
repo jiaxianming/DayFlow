@@ -70,7 +70,7 @@ class CollectorAgentTest {
         when(invoker.invoke(eq(structChatClient), any(String.class), eq(CollectedMaterial.class)))
                 .thenReturn(new AgentResult<>(material, 50, 300));
 
-        AgentResult<CollectedMaterial> result = collector.collect(plan, LocalDate.of(2026, 7, 9));
+        AgentResult<CollectedMaterial> result = collector.collect(plan, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9));
 
         assertSame(material, result.payload());
         // 两段 token 累加：100 + 50 = 150
@@ -94,7 +94,7 @@ class CollectorAgentTest {
         when(invoker.invoke(eq(structChatClient), eq(""), eq(CollectedMaterial.class)))
                 .thenReturn(new AgentResult<>(new CollectedMaterial(), 30, 200));
 
-        AgentResult<CollectedMaterial> result = collector.collect(plan, LocalDate.of(2026, 7, 9));
+        AgentResult<CollectedMaterial> result = collector.collect(plan, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9));
 
         // 空 content 仍返回非 null payload（降级空素材），不崩
         assertNotNull(result.payload());

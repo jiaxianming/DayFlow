@@ -5,6 +5,7 @@ import com.dayflow.agent.model.AgentResult;
 import com.dayflow.agent.model.CollectedMaterial;
 import com.dayflow.agent.model.DraftReport;
 import com.dayflow.agent.model.ReportPlan;
+import com.dayflow.pojo.enums.ReportType;
 import tools.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.springframework.ai.chat.client.ChatClient;
@@ -57,8 +58,8 @@ public class WriterAgent {
      * @param suggestions 修改建议（首次为 null）
      * @return AgentResult（payload=DraftReport）
      */
-    public AgentResult<DraftReport> write(ReportPlan plan, CollectedMaterial material, String suggestions) {
-        String prompt = buildPrompt(plan, material, suggestions);
+    public AgentResult<DraftReport> write(ReportPlan plan, CollectedMaterial material, String suggestions, ReportType type) {
+        String prompt = buildPrompt(plan, material, suggestions, type);
         return invoker.invoke(writerChatClient, prompt, DraftReport.class);
     }
 
@@ -72,10 +73,11 @@ public class WriterAgent {
      * @return 用户提示文本
      */
     @SneakyThrows
-    private String buildPrompt(ReportPlan plan, CollectedMaterial material, String suggestions) {
+    private String buildPrompt(ReportPlan plan, CollectedMaterial material, String suggestions, ReportType type) {
+        String typeLabel = (type == ReportType.WEEKLY) ? "周报" : "日报";
         return "报告计划：" + JSON.writeValueAsString(plan)
                 + "\n采集素材：" + JSON.writeValueAsString(material)
                 + "\n修改建议：" + (suggestions == null ? "无修改建议（首次撰写）" : suggestions)
-                + "\n请据此撰写日报草稿。";
+                + "\n请据此撰写" + typeLabel + "草稿。";
     }
 }

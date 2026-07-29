@@ -15,6 +15,7 @@ import com.dayflow.common.UserContext;
 import com.dayflow.mapper.ActivityMapper;
 import com.dayflow.mapper.NoteMapper;
 import com.dayflow.mapper.TaskMapper;
+import com.dayflow.pojo.dto.ReportCreateDTO;
 import com.dayflow.pojo.dto.ReportGenerateDTO;
 import com.dayflow.pojo.enums.ReportType;
 import com.dayflow.service.AgentTraceService;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -102,13 +104,13 @@ class ReportOrchestrationServiceImplTest {
     @Test
     void runMainFlowReviewerPassedFirstTime() {
         when(planner.plan(any())).thenReturn(new AgentResult<>(plan(), 50, 100));
-        when(collector.collect(any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
-        when(writer.write(any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("v1"), 90, 300));
+        when(collector.collect(any(), any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
+        when(writer.write(any(), any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("v1"), 90, 300));
         ReviewResult passed = new ReviewResult();
         passed.setPassed(true);
         when(reviewer.review(any(), any())).thenReturn(new AgentResult<>(passed, 70, 150));
 
-        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         // title 取自 Writer 产出的 draft（"v1"）；content 为 toMarkdown；token 累计
         verify(reportService).markGenerated(eq(1L), eq("v1"), any(String.class), anyInt());
@@ -120,13 +122,13 @@ class ReportOrchestrationServiceImplTest {
     void runFallsBackTitleWhenDraftTitleBlank() {
         // Writer 偶发不产标题（空白）→ 编排层兜底「日报 + date」，保证 report.title 永不为 null
         when(planner.plan(any())).thenReturn(new AgentResult<>(plan(), 50, 100));
-        when(collector.collect(any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
-        when(writer.write(any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("   "), 90, 300));
+        when(collector.collect(any(), any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
+        when(writer.write(any(), any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("   "), 90, 300));
         ReviewResult pass = new ReviewResult();
         pass.setPassed(true);
         when(reviewer.review(any(), any())).thenReturn(new AgentResult<>(pass, 70, 150));
 
-        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         // draft.title 为空白 → 兜底标题「日报 2026-07-09」
         verify(reportService).markGenerated(eq(1L), eq("日报 2026-07-09"), any(String.class), anyInt());
@@ -135,9 +137,9 @@ class ReportOrchestrationServiceImplTest {
     @Test
     void runReviewerRejectThenRetryPass() {
         when(planner.plan(any())).thenReturn(new AgentResult<>(plan(), 50, 100));
-        when(collector.collect(any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
-        when(writer.write(any(), any(), isNull())).thenReturn(new AgentResult<>(draftWithTitle("v1"), 90, 300));
-        when(writer.write(any(), any(), eq("请精简"))).thenReturn(new AgentResult<>(draftWithTitle("v2"), 90, 300));
+        when(collector.collect(any(), any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
+        when(writer.write(any(), any(), isNull(), any())).thenReturn(new AgentResult<>(draftWithTitle("v1"), 90, 300));
+        when(writer.write(any(), any(), eq("请精简"), any())).thenReturn(new AgentResult<>(draftWithTitle("v2"), 90, 300));
         ReviewResult reject = new ReviewResult();
         reject.setPassed(false);
         reject.setSuggestions("请精简");
@@ -145,10 +147,10 @@ class ReportOrchestrationServiceImplTest {
         pass.setPassed(true);
         when(reviewer.review(any(), any())).thenReturn(new AgentResult<>(reject, 70, 150), new AgentResult<>(pass, 70, 150));
 
-        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
-        verify(writer).write(any(), any(), isNull());       // 首次
-        verify(writer).write(any(), any(), eq("请精简"));    // 返工一次
+        verify(writer).write(any(), any(), isNull(), any());       // 首次
+        verify(writer).write(any(), any(), eq("请精简"), any());    // 返工一次
         // 返工后最终 draft title="v2"
         verify(reportService).markGenerated(eq(1L), eq("v2"), any(String.class), anyInt());
     }
@@ -156,16 +158,16 @@ class ReportOrchestrationServiceImplTest {
     @Test
     void runForcePassWhenRetryExceedsMax() {
         when(planner.plan(any())).thenReturn(new AgentResult<>(plan(), 50, 100));
-        when(collector.collect(any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
+        when(collector.collect(any(), any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
         // Writer 每次都产新草稿
-        when(writer.write(any(), any(), any())).thenAnswer(inv -> new AgentResult<>(draftWithTitle("v"), 90, 300));
+        when(writer.write(any(), any(), any(), any())).thenAnswer(inv -> new AgentResult<>(draftWithTitle("v"), 90, 300));
         // Reviewer 每次都不通过
         ReviewResult reject = new ReviewResult();
         reject.setPassed(false);
         reject.setSuggestions("再改");
         when(reviewer.review(any(), any())).thenReturn(new AgentResult<>(reject, 70, 150));
 
-        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         // MAX_RETRY=2：while(retry<2) 仅 retry=0、1 两轮，reviewer 最多被调 2 次（始终 reject 时），退出后强制通过 → markGenerated（与 spec 5.4 伪代码一致）
         verify(reportService).markGenerated(eq(1L), eq("v"), any(String.class), anyInt());
@@ -176,7 +178,7 @@ class ReportOrchestrationServiceImplTest {
     void runMarksFailedOnPlannerException() {
         when(planner.plan(any())).thenThrow(new RuntimeException("LLM 挂了"));
 
-        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         verify(reportService).markFailed(eq(1L), contains("LLM 挂了"));
         verify(reportService, never()).markGenerated(anyLong(), any(), any(), anyInt());
@@ -189,13 +191,13 @@ class ReportOrchestrationServiceImplTest {
             org.junit.jupiter.api.Assertions.assertEquals(7L, AgentContext.getUserId());
             return new AgentResult<>(plan(), 50, 100);
         });
-        when(collector.collect(any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
-        when(writer.write(any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("v"), 90, 300));
+        when(collector.collect(any(), any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
+        when(writer.write(any(), any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("v"), 90, 300));
         ReviewResult pass = new ReviewResult();
         pass.setPassed(true);
         when(reviewer.review(any(), any())).thenReturn(new AgentResult<>(pass, 70, 150));
 
-        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), ReportType.DAILY);
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 9), ReportType.DAILY);
 
         // run 结束后 AgentContext 应被 clear（@AfterEach 也 clear，此处额外验证无残留由 AfterEach 兜底）
     }
@@ -221,5 +223,42 @@ class ReportOrchestrationServiceImplTest {
         assertEquals(88L, id);
         verify(reportService).create(any());
         verify(agentExecutor).execute(any());
+    }
+
+    @Test
+    void runWeeklyUsesPeriodRangeForCollectAndFallbackTitle() {
+        when(planner.plan(any())).thenReturn(new AgentResult<>(plan(), 50, 100));
+        when(collector.collect(any(), any(), any())).thenReturn(new AgentResult<>(new CollectedMaterial(), 60, 200));
+        when(writer.write(any(), any(), any(), any())).thenReturn(new AgentResult<>(draftWithTitle("   "), 90, 300));
+        ReviewResult pass = new ReviewResult();
+        pass.setPassed(true);
+        when(reviewer.review(any(), any())).thenReturn(new AgentResult<>(pass, 70, 150));
+
+        // WEEKLY 周期：周一 2026-07-27 ~ 周日 2026-08-02（推导在 generate，run 直接收 start/end）
+        orchestration.run(1L, 7L, LocalDate.of(2026, 7, 27), LocalDate.of(2026, 8, 2), ReportType.WEEKLY);
+
+        // Collector 收到完整周期范围（非单日）
+        verify(collector).collect(any(), eq(LocalDate.of(2026, 7, 27)), eq(LocalDate.of(2026, 8, 2)));
+        // draft.title 空白 → 兜底标题含周期
+        verify(reportService).markGenerated(eq(1L), eq("周报 2026-07-27~2026-08-02"), any(String.class), anyInt());
+    }
+
+    @Test
+    void generateWeeklyDerivesNaturalWeekPeriod() {
+        UserContext.setUserId(7L);
+        when(reportService.create(any())).thenReturn(99L);
+        doNothing().when(agentExecutor).execute(any());
+
+        ReportGenerateDTO dto = new ReportGenerateDTO();
+        dto.setType(ReportType.WEEKLY);
+        dto.setDate(LocalDate.of(2026, 7, 28)); // 周二
+
+        orchestration.generate(dto);
+
+        ArgumentCaptor<ReportCreateDTO> captor = ArgumentCaptor.forClass(ReportCreateDTO.class);
+        verify(reportService).create(captor.capture());
+        // 周二 07-28 → 所在自然周 周一 07-27 ~ 周日 08-02
+        assertEquals(LocalDate.of(2026, 7, 27), captor.getValue().getPeriodStart());
+        assertEquals(LocalDate.of(2026, 8, 2), captor.getValue().getPeriodEnd());
     }
 }

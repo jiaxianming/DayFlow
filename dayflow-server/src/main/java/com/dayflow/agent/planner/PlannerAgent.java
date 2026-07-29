@@ -4,6 +4,7 @@ import com.dayflow.agent.AgentInvoker;
 import com.dayflow.agent.model.AgentResult;
 import com.dayflow.agent.model.PlanInput;
 import com.dayflow.agent.model.ReportPlan;
+import com.dayflow.pojo.enums.ReportType;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -62,9 +63,16 @@ public class PlannerAgent {
      * @return 用户提示文本
      */
     private String buildPrompt(PlanInput input) {
-        return "日期：" + input.getDate()
-                + "；报告类型：" + input.getReportType()
-                + "；数据提示：" + (input.getDataHint() == null ? "无" : input.getDataHint())
-                + "。请据此规划日报板块结构。";
+        ReportType type = input.getReportType();
+        String typeLabel = (type == ReportType.WEEKLY) ? "周报" : "日报";
+        String period = input.getStartDate().equals(input.getEndDate())
+                ? "日期：" + input.getStartDate()
+                : "周期：" + input.getStartDate() + " ~ " + input.getEndDate();
+        String sectionHint = (type == ReportType.WEEKLY)
+                ? "（建议板块：本周工作总结 / 学习收获 / 问题与改进 / 下周计划）"
+                : "（建议板块：今日工作 / 学习记录）";
+        return period + "；报告类型：" + typeLabel + "；数据提示："
+                + (input.getDataHint() == null ? "无" : input.getDataHint())
+                + "。请据此规划" + typeLabel + "板块结构" + sectionHint + "。";
     }
 }

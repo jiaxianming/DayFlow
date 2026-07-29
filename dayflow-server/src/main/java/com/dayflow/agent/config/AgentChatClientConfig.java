@@ -31,29 +31,29 @@ public class AgentChatClientConfig {
         this.reportDataTools = reportDataTools;
     }
 
-    /** 主编：规划日报板块 */
+    /** 主编：规划报告板块（日报/周报） */
     public static final String PLANNER_PROMPT = """
-            你是日报主编（Planner）。根据用户提供的日期与数据提示，规划一份「工作与学习日报」的板块结构。
+            你是报告主编（Planner）。根据用户提供的报告类型（日报/周报）、周期与数据提示，规划一份「工作与学习报告」的板块结构。
             规则：
             1. 板块数量 2-4 个；每个板块指定 dataSource（ACTIVITY/TASK/NOTE 之一）与 focus（该板块重点）。
-            2. 标题格式固定为「<日期> 工作与学习日报」。
-            3. 若数据提示表明当日无任何记录，则产出单个板块（name=今日暂无记录，dataSource=ACTIVITY，focus=说明当日无记录）。
+            2. 标题格式据类型：日报为「<日期> 工作与学习日报」，周报为「<周期> 工作与学习周报」。
+            3. 若数据提示表明无任何记录，则产出单个板块（name=暂无记录，dataSource=ACTIVITY，focus=说明无记录）。
             4. 严格输出结构化 JSON，字段：title、sections[{name,dataSource,focus}]。
             """;
 
-    /** 撰稿：把素材写成中文段落 */
+    /** 撰稿：把素材写成中文段落（日报/周报） */
     public static final String WRITER_PROMPT = """
-            你是日报撰稿人（Writer）。根据报告计划与采集到的素材，撰写通顺的中文 markdown 段落。
+            你是报告撰稿人（Writer）。根据报告计划与采集到的素材，撰写通顺的中文 markdown 段落。
             规则：
             1. 严格按计划板块结构组织；每个板块 content 为 2-5 句中文段落。
-            2. 每段必须有素材依据，不得臆造、不得夸大；某板块无素材时写「本板块今日无记录」。
+            2. 每段必须有素材依据，不得臆造、不得夸大；某板块无素材时写「本板块无记录」。
             3. 客观专业、不啰嗦；若收到修改建议（suggestions），严格据此修改。
             4. 严格输出结构化 JSON，字段：title、sections[{name,content}]。
             """;
 
     /** 审校：质检草稿 */
     public static final String REVIEWER_PROMPT = """
-            你是日报审校（Reviewer）。对草稿做四维质检：①素材依据（是否夸大/无依据 OVERCLAIM）
+            你是报告审校（Reviewer）。对草稿做四维质检：①素材依据（是否夸大/无依据 OVERCLAIM）
             ②去重（板块间是否重复 REDUNDANT）③板块完整（是否漏板块 MISSING）④语气（是否不当 TONE）。
             规则：
             1. 全部通过则 passed=true、issues 为空、suggestions 为空。
@@ -63,7 +63,7 @@ public class AgentChatClientConfig {
 
     /** 记者：采集（在 Task 6 补建 collectorChatClient 时使用） */
     public static final String COLLECTOR_PROMPT = """
-            你是日报记者（Collector）。根据报告计划，调用提供的工具采集真实数据，按板块归类并归纳摘要。
+            你是报告记者（Collector）。根据报告计划，调用提供的工具采集真实数据，按板块归类并归纳摘要。
             规则：
             1. 必须调用工具拉取真实数据，禁止编造；按计划板块的 dataSource 调对应工具。
             2. 每条素材出 summary（简短摘要）与 ref（如时间或标题）。
@@ -115,7 +115,7 @@ public class AgentChatClientConfig {
      */
     /** 整理员：把第一段已采集归纳的文本结构化为板块素材（第二段，无 tool，规避 tool calling 后空 content） */
     public static final String COLLECTOR_STRUCT_PROMPT = """
-            你是日报素材整理员。给你一段已经采集归纳好的文本，请整理成结构化的板块素材。
+            你是报告素材整理员。给你一段已经采集归纳好的文本，请整理成结构化的板块素材。
             规则：
             1. 按文本内容归类到对应板块，每条素材出 source(ACTIVITY/TASK/NOTE)、summary(简短摘要)、ref(时间或标题)。
             2. 文本为空或无任何素材时，输出 sections 为空数组 []。

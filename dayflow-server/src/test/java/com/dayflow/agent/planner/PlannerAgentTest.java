@@ -40,7 +40,8 @@ class PlannerAgentTest {
     @Test
     void planInvokesWithPromptContainingDateAndDataHint() {
         PlanInput input = new PlanInput();
-        input.setDate(LocalDate.of(2026, 7, 9));
+        input.setStartDate(LocalDate.of(2026, 7, 9));
+        input.setEndDate(LocalDate.of(2026, 7, 9));
         input.setReportType(ReportType.DAILY);
         input.setDataHint("活动 3 条 / 任务 2 条 / 笔记 1 条");
 

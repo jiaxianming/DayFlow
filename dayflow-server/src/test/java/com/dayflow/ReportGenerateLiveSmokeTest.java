@@ -44,7 +44,7 @@ class ReportGenerateLiveSmokeTest {
      * <p>⚠️ live 测试需先有 JWT 上下文：实际经 Controller 触发更真实。
      * 此处直接调 orchestration.run 模拟（UserContext 由 generate 设置），
      * 但 generate 依赖 UserContext.getUserId()——live 场景需先 login 拿 token 走 HTTP。
-     * 简化：直接调 run(reportId, userId, date, type)，reportId 由 reportService.create 预建。</p>
+     * 简化：直接调 run(reportId, userId, startDate, endDate, type)，reportId 由 reportService.create 预建。</p>
      *
      * <p>断言刻意放宽为 assertNotNull：live 真实路径由人工 HTTP 验证（见类注释）。</p>
      */
@@ -58,7 +58,7 @@ class ReportGenerateLiveSmokeTest {
         // 先用固定 userId 建 report（此处假设 admin userId=1，按实际预置用户调整）
         Long userId = 1L;
         // 直接执行编排（同步，不经线程池）
-        orchestration.run(1L, userId, LocalDate.now(), ReportType.DAILY);
+        orchestration.run(1L, userId, LocalDate.now(), LocalDate.now(), ReportType.DAILY);
 
         // 验收：status=GENERATED（或 FAILED 时人工排查），此处仅断言非空
         ReportVO report = reportService.getById(1L);

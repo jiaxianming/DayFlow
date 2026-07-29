@@ -26,12 +26,13 @@ public interface ReportOrchestrationService {
     /**
      * 异步线程内执行 4 Agent 编排（由专用线程池驱动，不对外暴露）
      * <p>userId 经 {@link AgentContext} ThreadLocal 传给 {@code ReportDataTools}；
-     * LLM 全程不接触 userId。</p>
+     * LLM 全程不接触 userId。周期由 generate 经 {@link ReportPeriods} 推导后传入。</p>
      *
-     * @param reportId 报告 id
-     * @param userId   当前用户 id（经 AgentContext 传给 Tool）
-     * @param date     报告日期
-     * @param type     报告类型
+     * @param reportId  报告 id
+     * @param userId    当前用户 id（经 AgentContext 传给 Tool）
+     * @param startDate 周期起始日（含）
+     * @param endDate   周期结束日（含）
+     * @param type      报告类型
      */
-    void run(Long reportId, Long userId, LocalDate date, ReportType type);
+    void run(Long reportId, Long userId, LocalDate startDate, LocalDate endDate, ReportType type);
 }

@@ -60,20 +60,21 @@ public class CollectorAgent {
 
     /**
      * 采集素材（两段式）。
-     * <p>据报告计划与日期构造 prompt（<strong>不含 userId</strong>）：
+     * <p>据报告计划与周期构造 prompt（<strong>不含 userId</strong>）：
      * <ol>
      *   <li>第一段：带 tool 的 {@code collectorChatClient} 经 {@code callForContent} 取采集文本
      *       ——tool calling 后空 content 降级为 ""，不崩。</li>
      *   <li>第二段：无 tool 的 {@code structChatClient} 把文本结构化为 {@link CollectedMaterial}。</li>
      * </ol>
-     * 两段 token / latency 累加。采集范围固定为 [date, date]（单日）。</p>
+     * 两段 token / latency 累加。采集范围为 [startDate, endDate]。</p>
      *
-     * @param plan 报告计划（标题 + 板块清单）
-     * @param date 采集日期（范围 = [date, date]）
+     * @param plan      报告计划（标题 + 板块清单）
+     * @param startDate 采集起始日（含）
+     * @param endDate   采集结束日（含）
      * @return AgentResult（payload=CollectedMaterial；tokens/latency 为两段累加）
      */
-    public AgentResult<CollectedMaterial> collect(ReportPlan plan, LocalDate date) {
-        String prompt = buildPrompt(plan, date);
+    public AgentResult<CollectedMaterial> collect(ReportPlan plan, LocalDate startDate, LocalDate endDate) {
+        String prompt = buildPrompt(plan, startDate, endDate);
         // 第一段：带 tool 采集——仅取文本（callForContent），规避 tool calling 后空 content 崩溃
         AgentResult<String> collected = invoker.callForContent(collectorChatClient, prompt);
         // 第二段：无 tool 结构化——把采集文本喂给 structChatClient，DeepSeek 无 tool 调用稳定产 content
@@ -87,19 +88,19 @@ public class CollectorAgent {
 
     /**
      * 构造用户提示文本。
-     * <p>列出采集日期范围、报告标题与各板块（数据源 + 重点），
+     * <p>列出采集周期范围、报告标题与各板块（数据源 + 重点），
      * 指示 LLM 对每个板块调对应工具拉真实数据并按板块归纳。
      * 板块清单为空时仅给出采集框架（由 LLM 自行决策）。</p>
      *
-     * @param plan 报告计划
-     * @param date 采集日期
+     * @param plan      报告计划
+     * @param startDate 采集起始日
+     * @param endDate   采集结束日
      * @return 用户提示文本
      */
-    private String buildPrompt(ReportPlan plan, LocalDate date) {
-        String dateStr = date.toString();
+    private String buildPrompt(ReportPlan plan, LocalDate startDate, LocalDate endDate) {
         StringBuilder sb = new StringBuilder();
-        sb.append("采集日期：").append(dateStr).append("。").append("开始：").append(dateStr)
-          .append("，结束：").append(dateStr).append("。");
+        sb.append("采集周期：").append(startDate).append(" ~ ").append(endDate).append("。")
+          .append("开始：").append(startDate).append("，结束：").append(endDate).append("。");
         sb.append("报告标题：").append(plan.getTitle()).append("。");
         sb.append("请按以下板块结构采集数据：\n");
         if (plan.getSections() != null) {

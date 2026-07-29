@@ -141,37 +141,37 @@ public class ReportOrchestrationServiceImpl implements ReportOrchestrationServic
     @Override
     public Long generate(ReportGenerateDTO dto) {
         Long userId = UserContext.getUserId();
-        LocalDate date = dto.getDate();
+        ReportPeriods.PeriodRange period = ReportPeriods.resolve(dto.getDate(), dto.getType());
         ReportCreateDTO createDTO = new ReportCreateDTO();
         createDTO.setType(dto.getType());
-        createDTO.setPeriodStart(date);
-        createDTO.setPeriodEnd(date);
+        createDTO.setPeriodStart(period.start());
+        createDTO.setPeriodEnd(period.end());
         Long reportId = reportService.create(createDTO);
         final Long uid = userId;
-        agentExecutor.execute(() -> run(reportId, uid, date, dto.getType()));
-        log.info("报告生成已提交 reportId={} userId={} date={}", reportId, uid, date);
+        agentExecutor.execute(() -> run(reportId, uid, period.start(), period.end(), dto.getType()));
+        log.info("报告生成已提交 reportId={} userId={} period={}~{}", reportId, uid, period.start(), period.end());
         return reportId;
     }
 
     @Override
-    public void run(Long reportId, Long userId, LocalDate date, ReportType type) {
+    public void run(Long reportId, Long userId, LocalDate startDate, LocalDate endDate, ReportType type) {
         AgentContext.setUserId(userId);
         int totalTokens = 0;
         int step = 1;
         try {
             // 1. 规划
-            PlanInput planInput = buildPlanInput(userId, date, type);
+            PlanInput planInput = buildPlanInput(userId, startDate, endDate, type);
             AgentResult<ReportPlan> planResult = planner.plan(planInput);
             totalTokens += planResult.tokens();
             trace(reportId, AgentName.PLANNER, step++, planInput, planResult.payload(), planResult, 0);
 
-            // 2. 采集
-            AgentResult<CollectedMaterial> materialResult = collector.collect(planResult.payload(), date);
+            // 2. 采集（按周期范围）
+            AgentResult<CollectedMaterial> materialResult = collector.collect(planResult.payload(), startDate, endDate);
             totalTokens += materialResult.tokens();
             trace(reportId, AgentName.COLLECTOR, step++, planResult.payload(), materialResult.payload(), materialResult, 0);
 
             // 3. 撰写 + 审校（反馈循环，最多 MAX_RETRY 次）
-            AgentResult<DraftReport> draftResult = writer.write(planResult.payload(), materialResult.payload(), null);
+            AgentResult<DraftReport> draftResult = writer.write(planResult.payload(), materialResult.payload(), null, type);
             totalTokens += draftResult.tokens();
             DraftReport draft = draftResult.payload();
             trace(reportId, AgentName.WRITER, step++, materialResult.payload(), draft, draftResult, 0);
@@ -186,15 +186,17 @@ public class ReportOrchestrationServiceImpl implements ReportOrchestrationServic
                 }
                 retry++;
                 AgentResult<DraftReport> rewrite = writer.write(planResult.payload(), materialResult.payload(),
-                        reviewResult.payload().getSuggestions());
+                        reviewResult.payload().getSuggestions(), type);
                 totalTokens += rewrite.tokens();
                 draft = rewrite.payload();
                 trace(reportId, AgentName.WRITER, step++, reviewResult.payload(), draft, rewrite, retry);
             }
-            // 4. 落库（单独事务）：标题优先取 Writer 产出，缺失则按类型+日期兜底，保证 report.title 永不为 null
+            // 4. 落库（单独事务）：标题优先取 Writer 产出，缺失则按类型+周期兜底，保证 report.title 永不为 null
             String title = draft.getTitle();
             if (title == null || title.isBlank()) {
-                title = (type == ReportType.WEEKLY ? "周报 " : "日报 ") + date;
+                title = (type == ReportType.WEEKLY)
+                        ? "周报 " + startDate + "~" + endDate
+                        : "日报 " + startDate;
             }
             reportService.markGenerated(reportId, title, toMarkdown(draft), totalTokens);
             log.info("报告生成完成 reportId={} tokens={}", reportId, totalTokens);
@@ -214,61 +216,66 @@ public class ReportOrchestrationServiceImpl implements ReportOrchestrationServic
      * @param type   报告类型
      * @return 规划输入（date/reportType/dataHint，不含 userId）
      */
-    private PlanInput buildPlanInput(Long userId, LocalDate date, ReportType type) {
-        long actCount = countActivities(userId, date);
-        long taskCount = countCompletedTasks(userId, date);
-        long noteCount = countNotes(userId, date);
+    private PlanInput buildPlanInput(Long userId, LocalDate startDate, LocalDate endDate, ReportType type) {
+        long actCount = countActivities(userId, startDate, endDate);
+        long taskCount = countCompletedTasks(userId, startDate, endDate);
+        long noteCount = countNotes(userId, startDate, endDate);
+        String prefix = (type == ReportType.WEEKLY) ? "本周" : "当日";
         String dataHint = (actCount + taskCount + noteCount == 0)
-                ? "当日无任何记录"
-                : "活动 " + actCount + " 条 / 任务 " + taskCount + " 条 / 笔记 " + noteCount + " 条";
+                ? prefix + "无任何记录"
+                : prefix + "活动 " + actCount + " 条 / 任务 " + taskCount + " 条 / 笔记 " + noteCount + " 条";
         PlanInput input = new PlanInput();
-        input.setDate(date);
+        input.setStartDate(startDate);
+        input.setEndDate(endDate);
         input.setReportType(type);
         input.setDataHint(dataHint);
         return input;
     }
 
     /**
-     * count 当日活动条数
+     * count 周期内活动条数
      *
-     * @param userId 用户 id
-     * @param date   日期
-     * @return 当日 [00:00, 23:59:59] 活动条数
+     * @param userId    用户 id
+     * @param startDate 起始日（含）
+     * @param endDate   结束日（含）
+     * @return [startDate 00:00, endDate 23:59:59] 活动条数
      */
-    private long countActivities(Long userId, LocalDate date) {
+    private long countActivities(Long userId, LocalDate startDate, LocalDate endDate) {
         return activityMapper.selectCount(new LambdaQueryWrapper<ActivityEntity>()
                 .eq(ActivityEntity::getUserId, userId)
-                .ge(ActivityEntity::getOccurredAt, date.atStartOfDay())
-                .le(ActivityEntity::getOccurredAt, date.atTime(23, 59, 59)));
+                .ge(ActivityEntity::getOccurredAt, startDate.atStartOfDay())
+                .le(ActivityEntity::getOccurredAt, endDate.atTime(23, 59, 59)));
     }
 
     /**
-     * count 当日已完成任务条数
+     * count 周期内已完成任务条数
      *
-     * @param userId 用户 id
-     * @param date   日期
-     * @return 当日状态为 DONE 的任务条数
+     * @param userId    用户 id
+     * @param startDate 起始日（含）
+     * @param endDate   结束日（含）
+     * @return 周期内状态为 DONE 的任务条数
      */
-    private long countCompletedTasks(Long userId, LocalDate date) {
+    private long countCompletedTasks(Long userId, LocalDate startDate, LocalDate endDate) {
         return taskMapper.selectCount(new LambdaQueryWrapper<TaskEntity>()
                 .eq(TaskEntity::getUserId, userId)
                 .eq(TaskEntity::getStatus, TaskStatus.DONE)
-                .ge(TaskEntity::getCompletedAt, date.atStartOfDay())
-                .le(TaskEntity::getCompletedAt, date.atTime(23, 59, 59)));
+                .ge(TaskEntity::getCompletedAt, startDate.atStartOfDay())
+                .le(TaskEntity::getCompletedAt, endDate.atTime(23, 59, 59)));
     }
 
     /**
-     * count 当日笔记条数
+     * count 周期内笔记条数
      *
-     * @param userId 用户 id
-     * @param date   日期
-     * @return 当日创建的笔记条数
+     * @param userId    用户 id
+     * @param startDate 起始日（含）
+     * @param endDate   结束日（含）
+     * @return 周期内创建的笔记条数
      */
-    private long countNotes(Long userId, LocalDate date) {
+    private long countNotes(Long userId, LocalDate startDate, LocalDate endDate) {
         return noteMapper.selectCount(new LambdaQueryWrapper<NoteEntity>()
                 .eq(NoteEntity::getUserId, userId)
-                .ge(NoteEntity::getCreatedAt, date.atStartOfDay())
-                .le(NoteEntity::getCreatedAt, date.atTime(23, 59, 59)));
+                .ge(NoteEntity::getCreatedAt, startDate.atStartOfDay())
+                .le(NoteEntity::getCreatedAt, endDate.atTime(23, 59, 59)));
     }
 
     /**

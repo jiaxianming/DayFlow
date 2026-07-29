@@ -5,6 +5,7 @@ import com.dayflow.agent.model.AgentResult;
 import com.dayflow.agent.model.CollectedMaterial;
 import com.dayflow.agent.model.DraftReport;
 import com.dayflow.agent.model.ReportPlan;
+import com.dayflow.pojo.enums.ReportType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -43,7 +44,7 @@ class WriterAgentTest {
         when(invoker.invoke(eq(writerChatClient), any(String.class), eq(DraftReport.class)))
                 .thenReturn(new AgentResult<>(draft, 90, 500));
 
-        AgentResult<DraftReport> result = writer.write(plan, material, null);
+        AgentResult<DraftReport> result = writer.write(plan, material, null, ReportType.DAILY);
 
         assertSame(draft, result.payload());
         verify(invoker).invoke(eq(writerChatClient), contains("无修改建议"), eq(DraftReport.class));
@@ -57,7 +58,7 @@ class WriterAgentTest {
         when(invoker.invoke(eq(writerChatClient), any(String.class), eq(DraftReport.class)))
                 .thenReturn(new AgentResult<>(draft, 90, 500));
 
-        writer.write(plan, material, "减少第一段冗余");
+        writer.write(plan, material, "减少第一段冗余", ReportType.DAILY);
 
         verify(invoker).invoke(eq(writerChatClient), contains("减少第一段冗余"), eq(DraftReport.class));
     }
