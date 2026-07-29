@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import HistoryView from '../HistoryView.vue'
 import * as reportApi from '@/api/report'
+import { todayString } from '@/utils/format'
 import type { IReportVO } from '@/types/report'
 
 describe('HistoryView', () => {
@@ -86,6 +87,35 @@ describe('HistoryView', () => {
     // 未点对话框内「生成」前，生成接口不应被调用
     expect(genSpy).not.toHaveBeenCalled()
 
+    wrapper.unmount()
+  })
+
+  it('对话框选「本周」确认 → 以 WEEKLY + 当天触发生成', async () => {
+    vi.spyOn(reportApi, 'pageReports').mockResolvedValue({
+      records: [], total: 0, size: 10, current: 1, pages: 0,
+    })
+    const genSpy = vi.spyOn(reportApi, 'generateReport').mockResolvedValue('w-1')
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:rest(.*)*', component: { template: '<div/>' } }],
+    })
+    const wrapper = mount(HistoryView, { global: { plugins: [router, ElementPlus] } })
+    await nextTick()
+    await nextTick()
+
+    // 打开对话框
+    const openBtn = wrapper.findAll('button').find((b) => b.text().includes('生成报告'))!
+    await openBtn.trigger('click')
+    await nextTick()
+    // 选「本周」
+    wrapper.findComponent({ name: 'ElRadioGroup' }).vm.$emit('update:modelValue', 'week')
+    await nextTick()
+    // 点对话框内「生成」
+    const confirmBtn = wrapper.findAll('button').find((b) => b.text().trim() === '生成')!
+    await confirmBtn.trigger('click')
+    await nextTick()
+
+    expect(genSpy).toHaveBeenCalledWith({ type: 'WEEKLY', date: todayString() })
     wrapper.unmount()
   })
 })

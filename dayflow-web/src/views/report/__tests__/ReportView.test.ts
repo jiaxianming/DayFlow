@@ -55,7 +55,7 @@ describe('ReportView', () => {
 
   it('默认「今日」：点生成用当天日期触发', async () => {
     const wrapper = await mountView()
-    const genBtn = wrapper.findAll('button').find((b) => b.text().includes('生成日报'))!
+    const genBtn = wrapper.findAll('button').find((b) => b.text().includes('生成报告'))!
     await genBtn.trigger('click')
     await nextTick()
     expect(reportApi.generateReport).toHaveBeenCalledWith({ type: 'DAILY', date: todayString() })
@@ -70,5 +70,15 @@ describe('ReportView', () => {
     await nextTick()
     // 出现 date-picker
     expect(wrapper.find('.el-date-editor').exists()).toBe(true)
+  })
+
+  it('选「本周」生成周报：用当天日期 + WEEKLY 类型', async () => {
+    const wrapper = await mountView()
+    wrapper.findComponent({ name: 'ElRadioGroup' }).vm.$emit('update:modelValue', 'week')
+    await nextTick()
+    const genBtn = wrapper.findAll('button').find((b) => b.text().includes('生成报告'))!
+    await genBtn.trigger('click')
+    await nextTick()
+    expect(reportApi.generateReport).toHaveBeenCalledWith({ type: 'WEEKLY', date: todayString() })
   })
 })

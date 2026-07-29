@@ -17,8 +17,8 @@ const reportStore = useReportStore()
 /** 当前报告 id（来自路由 /reports/:id） */
 const reportId = computed<string | undefined>(() => route.params.id as string | undefined)
 
-/** 生成范围：今日 / 指定日期（周报后端暂未实现，本次仅日报，避免误导） */
-const mode = ref<'today' | 'custom'>('today')
+/** 生成范围：今日(日报) / 本周(周报) / 指定日期(日报) */
+const mode = ref<'today' | 'week' | 'custom'>('today')
 const date = ref<string>(todayString())
 const generating = ref(false)
 
@@ -29,16 +29,21 @@ function disabledFuture(d: Date): boolean {
 
 const { report, traces, isRunning, start, stop } = useReportPolling(reportId)
 
-/** 按所选范围解析目标日期：今日 → 当天；指定日期 → 用户所选 */
-function resolveDate(): string {
-  return mode.value === 'today' ? todayString() : date.value
+/** 据所选范围解析报告类型：本周 → WEEKLY，其余 → DAILY */
+function resolveType(): 'WEEKLY' | 'DAILY' {
+  return mode.value === 'week' ? 'WEEKLY' : 'DAILY'
 }
 
-/** 生成日报：triggerGenerate → 跳新 reportId */
+/** 据所选范围解析目标日期：今日/本周 → 当天；指定日期 → 用户所选 */
+function resolveDate(): string {
+  return mode.value === 'custom' ? date.value : todayString()
+}
+
+/** 生成报告：triggerGenerate → 跳新 reportId */
 async function onGenerate(): Promise<void> {
   generating.value = true
   try {
-    const id = await reportStore.triggerGenerate({ type: 'DAILY', date: resolveDate() })
+    const id = await reportStore.triggerGenerate({ type: resolveType(), date: resolveDate() })
     router.push('/reports/' + id)
   } catch {
     // 拦截器已提示
@@ -69,6 +74,7 @@ onUnmounted(() => stop())
     <el-card class="generate-bar" shadow="never">
       <el-radio-group v-model="mode">
         <el-radio-button value="today">今日</el-radio-button>
+        <el-radio-button value="week">本周</el-radio-button>
         <el-radio-button value="custom">指定日期</el-radio-button>
       </el-radio-group>
       <el-date-picker
@@ -87,7 +93,7 @@ onUnmounted(() => stop())
         style="margin-left: 12px"
         @click="onGenerate"
       >
-        生成日报
+        生成报告
       </el-button>
     </el-card>
 
@@ -96,7 +102,7 @@ onUnmounted(() => stop())
         <el-card shadow="never">
           <!-- 未加载/未生成 -->
           <div v-if="!report" class="report-empty">
-            选择「今日」或「指定日期」，点「生成日报」生成报告
+            选择「今日 / 本周 / 指定日期」，点「生成报告」生成报告
           </div>
           <!-- 生成中 -->
           <div v-else-if="report.status === 'GENERATING'">
